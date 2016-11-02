@@ -1,0 +1,19 @@
+# Test data
+DATA/
+
+# Executables
+*.exe
+*.dll
+
+# Temp. test &  source files, compiler results, logs
+[Bb]ackup.*
+*.log
+*.tra
+
+# Other tools
+OpenFile.*
+
+# Misc. (binary) files
+1.txt
+dfot.cmd
+*.zip
