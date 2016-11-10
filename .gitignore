@@ -1,5 +1,6 @@
 # Test data
 DATA/
+DATA 1/
 
 # Executables
 *.exe
@@ -14,6 +15,7 @@ DATA/
 OpenFile.*
 
 # Misc. (binary) files
-1.txt
+*.txt
 dfot.cmd
+dfot1.cmd
 *.zip

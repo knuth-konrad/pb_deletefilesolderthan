@@ -1,48 +1,102 @@
-#Compile Exe "DeleteFilesOlderThan.exe"
+'------------------------------------------------------------------------------
+'Purpose  : Delete files older than a given date/time
+'
+'Prereq.  : -
+'Note     : -
+'
+'   Author: Knuth Konrad 2013
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
+#Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
 #Dim All
 
-#Debug Error Off
-#Tools Off
+#Debug Error On
+#Tools On
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 4
-%VERSION_REVISION = 1
+%VERSION_REVISION = 2
 
-' Version information resource
+' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
-
+'------------------------------------------------------------------------------
+'*** Constants ***
+'------------------------------------------------------------------------------
+'------------------------------------------------------------------------------
+'*** Enumeration/TYPEs ***
+'------------------------------------------------------------------------------
+'------------------------------------------------------------------------------
+'*** Declares ***
+'------------------------------------------------------------------------------
 #Include Once "win32api.inc"
-#Include "sautilcc.inc"
-'---------------------------------------------------------------------------
+#Include "sautilcc.inc"       ' General console helpers
+#Include "IbaCmdLine.inc"     ' Command line parameters parser
+'------------------------------------------------------------------------------
+'*** Variabels ***
+'------------------------------------------------------------------------------
+'==============================================================================
 
 Function PBMain () As Long
-
-   Local sPath, sTime, sFilePattern, sTemp As String
+'------------------------------------------------------------------------------
+'Purpose  : Programm startup method
+'
+'Prereq.  : -
+'Parameter: -
+'Returns  : -
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: 10.11.2016
+'           - Use own command line parsing instead of buildin PARSE in order
+'           to deal with long folder/file names
+'------------------------------------------------------------------------------
+   Local sPath, sTime, sFilePattern, sCmd, sTemp As String
    Local i, j As Dword
-   Local lSubfolders, lResult, lVerbose As Long
+   Local lSubfolders, lResult, lVerbose, lTemp As Long
+   Local vntResult As Variant
 
    Local oPTNow As IPowerTime
    Let oPTNow = Class "PowerTime"
 
+   ' Application intro
    ConHeadline "DeleteFilesOlderThan", %VERSION_MAJOR, %VERSION_MINOR, %VERSION_REVISION
-   ConCopyright "2013, 2016", $COMPANY_NAME
+   ConCopyright "2013-2016", $COMPANY_NAME
    Print ""
 
    Trace New ".\DeleteFilesOlderThan.tra"
+
+   ' *** Parse the parameters
+   ' Initialization and basic checks
+   sCmd = Command$
+
+   Local o As IBACmdLine
+   Local vnt As Variant
+
+   Let o = Class "cBACmdLine"
+
+   If IsFalse(o.Init(sCmd)) Then
+      Print "Couldn't parse parameters: " & sCmd
+      Print "Type DeleteFilesOlderThan /? for help"
+      Let o = Nothing
+      Exit Function
+   End If
 
    If Len(Trim$(Command$)) < 1 Or InStr(Command$, "/?") > 0 Then
       ShowHelp
       Exit Function
    End If
 
+   ' Parse the passed parameters
    ' Valid CLI parameters are:
    ' /t= or /time=
    ' /p= or /path=
    ' /f= or /filepattern=
    ' /s= or /subfolders=
    ' /v= or /verbose
-   i = ParseCount(Command$, "/") - 1
+   i = o.ValuesCount
 
    If (i < 2) Or (i > 5) Then
       Print "Invalid number of parameters."
@@ -52,36 +106,38 @@ Function PBMain () As Long
    End If
 
    ' Parse CLI parameters
-   For j = 1 To i
 
-      If InStr(LCase$(Command$(j)),"/t=") > 0 Or InStr(LCase$(Command$(j)),"/time=") > 0 Then
-         sTemp = LCase$(Command$(j))
-         Replace "/time" With "/t" In sTemp
-         sTime = Remove$(Remain$(sTemp, "/t="), $Dq)
+   ' ** Time
+   If IsTrue(o.HasParam("t", "time")) Then
+      sTemp = Variant$(o.GetValueByName("t", "time"))
+      sTime = Trim$(Remove$(sTemp, $Dq))
+   End If
 
-      ElseIf InStr(LCase$(Command$(j)),"/p=") > 0 Or InStr(LCase$(Command$(j)),"/path=") > 0 Then
-         sTemp = LCase$(Command$(j))
-         Replace "/path" With "/p" In sTemp
-         sPath = Remove$(Remain$(sTemp, "/p="), $Dq)
+   ' ** Path
+   If IsTrue(o.HasParam("p", "path")) Then
+      sTemp = Variant$(o.GetValueByName("p", "path"))
+      sPath = Trim$(Remove$(sTemp, $Dq))
+   End If
 
-      ElseIf InStr(LCase$(Command$(j)),"/f=") > 0 Or InStr(LCase$(Command$(j)),"/filepattern=") > 0 Then
-         sTemp = LCase$(Command$(j))
-         Replace "/filepattern" With "/f" In sTemp
-         sFilePattern = Remove$(Remain$(sTemp, "/f="), $Dq)
+   ' ** File pattern
+   If IsTrue(o.HasParam("f", "filepattern")) Then
+      sTemp = Variant$(o.GetValueByName("f", "filepattern"))
+      sFilePattern = Trim$(Remove$(sTemp, $Dq))
+   End If
 
-      ElseIf InStr(LCase$(Command$(j)),"/s=") > 0 Or InStr(LCase$(Command$(j)),"/subfolders=") > 0 Then
-         sTemp = LCase$(Command$(j))
-         Replace "/subfolders" With "/s" In sTemp
-         lSubfolders = Abs(Val(Remove$(Remain$(sTemp, "/s="), $Dq)))
+   ' ** Recurse subfolders
+   If IsTrue(o.HasParam("s", "subfolders")) Then
+      vntResult = o.GetValueByName("s", "subfolders")
+      lSubfolders = Val(Variant$(vntResult))
+   End If
 
-      ElseIf InStr(LCase$(Command$(j)),"/v=") > 0 Or InStr(LCase$(Command$(j)),"/verbose=") > 0 Then
-         sTemp = LCase$(Command$(j))
-         Replace "/verbose" With "/v" In sTemp
-         lVerbose = Abs(Val(Remove$(Remain$(sTemp, "/v="), $Dq)))
-      End If
+   ' ** Verbose output
+   If IsTrue(o.HasParam("v", "verbose")) Then
+      vntResult = o.GetValueByName("v", "verbose")
+      lVerbose = Sgn(Abs(Val(Variant$(vntResult))))
+   End If
 
-   Next j
-
+   ' ** Defaults
    If Len(Trim$(sFilePattern)) < 2 Then
       sFilePattern = "*.*"
    End If
@@ -90,8 +146,8 @@ Function PBMain () As Long
    Con.StdOut "Time              : " & sTime
    Con.StdOut "Folder            : " & sPath
    Con.StdOut "File pattern      : " & sFilePattern
-   Con.StdOut "Recurse subfolders: " & Choose$(lSubfolders, "True" Else "False")
-   Con.StdOut "Verbose           : " & Choose$(lVerbose, "True" Else "False")
+   Con.StdOut "Recurse subfolders: " & IIf$(IsTrue(lSubfolders), "True", "False")
+   Con.StdOut "Verbose           : " & IIf$(IsTrue(lVerbose), "True", "False")
 
    If IsTrue(lVerbose) Then
       Call oPTNow.Now()
@@ -158,19 +214,30 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
    Local oPTNow As IPowerTime
    Let oPTNow = Class "PowerTime"
 
-   Local hSearch As Dword                ' Search handle
+   Local hSearch As Dword                 ' Search handle
    Local udtWFD As WIN32_FIND_DATAW      ' FindFirstFile structure
+
+   Trace On
+   Trace Print FuncName$
 
 
    For i = 1 To ParseCount(sFilePattern, ";")
 
+      Trace Print " -- DeleteFiles sFilePattern: " & Format$(i)
+
       sMsg = "-- Scanning folder "
       Con.StdOut  sMsg & ShortenPathText(sPath, Con.Screen.Col-(1+Len(sMsg)))
+
+      Trace Print " -- DeleteFiles sPath: " & sPath & " (" & Format$(Len(sPath)) & ")"
 
       sPattern = Parse$(sFilePattern, ";", i)
       Con.StdOut " - File pattern: " & sPattern
 
+      Trace Print " -- DeleteFiles sPattern: " & sPattern & " (" & Format$(Len(sPattern)) & ")"
+
       sSourceFile = NormalizePath(sPath) & sPattern
+      Trace Print " -- DeleteFiles sSourceFile: " & sSourceFile & " (" & Format$(Len(sSourceFile)) & ")"
+
       szSourceFile = sSourceFile
 
       hSearch = FindFirstFileW(szSourceFile, udtWFD)  ' Get search handle, if success
@@ -186,9 +253,6 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                   sFileTime = GetFileTimeStr(udtWFD)
                End If
 
-               ' Test the file pattern against the file name retrieved.
-               ' After a positive match, check the file's time stamp and delete it,
-               ' if it falls within the given time frame.
                If IsTrue(IsDeleteMatch(sTime, udtWFD)) Then
 
                   sMsg = "  - Deleting "
@@ -232,7 +296,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
       Con.StdOut ""
 
 
-      If IsTrue(lSubfolders) Then  ' If to recurse subdirectories.
+      If IsTrue(lSubfolders) Then  'if to search in subdirectories.
 
          szSourceFile = NormalizePath(sPath) & "*"
          hSearch = FindFirstFileW(szSourceFile, udtWFD)
