@@ -6,18 +6,19 @@
 '
 '   Author: Knuth Konrad 2013
 '   Source: -
-'  Changed: -
+'  Changed: 15.11.2016
+'           - Provide information about the amount of disk space freed.
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
 #Dim All
 
-#Debug Error On
-#Tools On
+#Debug Error Off
+#Tools Off
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 4
-%VERSION_REVISION = 2
+%VERSION_REVISION = 3
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -189,11 +190,15 @@ Function PBMain () As Long
    End If
 
    Trace On
-   lResult = DeleteFiles(sPath, sTime, sFilePattern, lSubfolders, lVerbose)
+
+   Local qudFileSizeTotal As Quad   ' Total space free by deleted files
+   lResult = DeleteFiles(sPath, sTime, sFilePattern, lSubfolders, lVerbose, qudFileSizeTotal)
    StdOut ""
    StdOut "Done. " & Format$(lResult) & " file(s) deleted."
-   Trace Off
+   sTemp = Trim$(GetSizeString(qudFileSizeTotal))
+   StdOut "Disk space freed: " & Format$(qudFileSizeTotal, "0,") & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
 
+   Trace Off
    Trace Close
 
    StdOut ""
@@ -203,13 +208,32 @@ Function PBMain () As Long
 End Function
 '---------------------------------------------------------------------------
 
-Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePattern As String, ByVal lSubfolders As Long, ByVal lVerbose As Long) As Long
+Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePattern As String, ByVal lSubfolders As Long, ByVal lVerbose As Long, _
+   ByRef qudFileSizeTotal As Quad) As Long
+'------------------------------------------------------------------------------
+'Purpose  : Recursevly scan folders for the file patterns passed and delete files
+'           older than sTime
+'
+'Prereq.  : -
+'Parameter: -
+'Returns  : -
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: 10.11.2016
+'           - Use own command line parsing instead of buildin PARSE in order
+'           to deal with long folder/file names
+'           - 11.11.2016
+'           Sum up size of files that were deleted
+'------------------------------------------------------------------------------
 
    Local sSourceFile, sPattern, sFile, sFileTime As String
    Local sMsg, sTemp As String
    Local i, lCount As Long
    Local udtDirData As DirData
    Local szSourceFile As WStringZ * %Max_Path
+   Local qudFileSize As Quad
 
    Local oPTNow As IPowerTime
    Let oPTNow = Class "PowerTime"
@@ -219,7 +243,6 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 
    Trace On
    Trace Print FuncName$
-
 
    For i = 1 To ParseCount(sFilePattern, ";")
 
@@ -245,6 +268,8 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 
          Do
 
+            qudFileSize = 0
+
             If (udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_DIRECTORY) <> %FILE_ATTRIBUTE_DIRECTORY Then ' If not directory bit is set (files only here...)
 
                sFile = Remove$(udtWFD.cFileName, Any Chr$(0))
@@ -258,18 +283,22 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                   sMsg = "  - Deleting "
                   Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
                   If IsTrue(lVerbose) Then
-                     Con.StdOut "    Time stamp: " & sFileTime
+                     Con.StdOut "    Time stamp: " & sFileTime;
                   End If
                   Incr lCount
 
                   Try
+                     ' Get the file size before deleting it
+                     qudFileSize = GetThisFileSize(udtWFD)
                      Kill NormalizePath(sPath) & sFile
+                     Con.StdOut " - File size: " & Format$(qudFileSize, "0,") & " bytes"
+
                   Catch
                      Con.Color 12, -1
                      sMsg = "  - ERROR: can't delete "
                      Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
                      If IsTrue(lVerbose) Then
-                        Con.StdOut "    Time stamp: " & sFileTime
+                        Con.StdOut ""
                      End If
                      Con.Color 7, -1
                      Decr lCount
@@ -286,6 +315,9 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                End If
 
             End If   '// If (udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_DIRECTORY) <> %FILE_ATTRIBUTE_DIRECTORY
+
+            ' Sum up file size
+            qudFileSizeTotal = qudFileSizeTotal + qudFileSize
 
          Loop While FindNextFileW(hSearch, udtWFD)
 
@@ -309,7 +341,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                   And (udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_HIDDEN) = 0 Then  ' If dirs, but not hidden..
 
                   If udtWFD.cFileName <> "." And udtWFD.cFileName <> ".." Then          ' Not these..
-                     lCount = lCount + DeleteFiles(NormalizePath(sPath) & RTrim$(udtWFD.cFileName, $Nul), sTime, sFilePattern, lSubfolders, lVerbose)
+                     lCount = lCount + DeleteFiles(NormalizePath(sPath) & RTrim$(udtWFD.cFileName, $Nul), sTime, sFilePattern, lSubfolders, lVerbose, qudFileSizeTotal)
                   End If
 
                End If
@@ -412,4 +444,82 @@ Sub ShowHelp
    Con.StdOut ""
 
 End Sub
+'---------------------------------------------------------------------------
+
+Function GetThisFileSize(ByVal udtFileSize As WIN32_FIND_DATAW) As Quad
+   Function = udtFileSize.nFileSizeHigh * &H0100000000 + udtFileSize.nFileSizeLow
+End Function
+'---------------------------------------------------------------------------
+
+Function GetSizeString(ByVal q As Quad) As String
+
+   Local sSize As String
+   Local qudDivisor As Quad
+
+   Trace On
+   Trace Print "q: " & Format$(q)
+
+   'Do While q > 1024
+   Do While q > 0
+
+      If (q \ 1024&&^4) > 0 Then
+      ' TB
+         qudDivisor = q / 1024&&^4
+         q = q - (qudDivisor * 1024&&^4)
+         Trace Print "TB: " & Format$(q)
+         sSize = Format$(qudDivisor) & "TB " & GetSizeString(q)
+         'function = Format$(qudDivisor) & "TB " & GetSizeString(q)
+      ElseIf  q \ 1024&&^3 > 0 Then
+      ' GB
+         qudDivisor = q \ 1024&&^3
+         q = q - (qudDivisor * 1024&&^3)
+         Trace Print "GB: " & Format$(q)
+         sSize = Format$(qudDivisor) & "GB " & GetSizeString(q)
+         'function = Format$(qudDivisor) & "GB " & GetSizeString(q)
+      ElseIf  q \ 1024&&^2 > 0 Then
+      ' MB
+         qudDivisor = q \ 1024&&^2
+         q = q - (qudDivisor * 1024&&^2)
+         Trace Print "MB: " & Format$(q)
+         sSize = Format$(qudDivisor) & "MB " & GetSizeString(q)
+         'function = Format$(qudDivisor) & "MB " & GetSizeString(q)
+      ElseIf  q \ 1024&&^3 > 0 Then
+      ' KB
+         qudDivisor = q \ 1024&&^1
+         q = q - (qudDivisor * 1024&&^1)
+         Trace Print "KB: " & Format$(q)
+         sSize = Format$(qudDivisor) & "KB " & GetSizeString(q)
+         'function = Format$(qudDivisor) & "KB " & GetSizeString(q)
+      Else
+      ' B
+         'Trace Print "B: " & Format$(q)
+         'function = sSize & Format$(q) & "B"
+         q = q - q
+         'exit function
+      End If
+
+   Loop
+
+   Function = sSize
+
+End Function
+'---------------------------------------------------------------------------
+
+Function CalcVal (ByVal sValue As String) As Quad
+
+   sValue = LCase$(sValue)
+   Select Case Right$(sValue, 2)
+   Case "kb"
+      CalcVal = Val(sValue) * 1024&&
+   Case "mb"
+      CalcVal = Val(sValue) * 1024&&^2
+   Case "gb"
+      CalcVal = Val(sValue) * 1024&&^3
+   Case "tb"
+      CalcVal = Val(sValue) * 1024&&^4
+   Case Else
+      CalcVal = Val(sValue)
+   End Select
+
+End Function
 '---------------------------------------------------------------------------
