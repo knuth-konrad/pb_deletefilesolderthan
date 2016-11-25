@@ -18,7 +18,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 4
-%VERSION_REVISION = 3
+%VERSION_REVISION = 4
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -291,7 +291,9 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                      ' Get the file size before deleting it
                      qudFileSize = GetThisFileSize(udtWFD)
                      Kill NormalizePath(sPath) & sFile
-                     Con.StdOut " - File size: " & Format$(qudFileSize, "0,") & " bytes"
+                     If IsTrue(lVerbose) Then
+                        Con.StdOut " - File size: " & Format$(qudFileSize, "0,") & " bytes"
+                     End If
 
                   Catch
                      Con.Color 12, -1
