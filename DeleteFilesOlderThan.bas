@@ -8,6 +8,10 @@
 '   Source: -
 '  Changed: 15.11.2016
 '           - Provide information about the amount of disk space freed.
+'           30.01.2017
+'           - New optional parameters: /fst, /filessmallerthan and /fgt /filesgreaterthan
+'           - Resolve absolute and UNC path, if the passed parameter is a relative path
+'           and output the information in the application's intro
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -17,8 +21,8 @@
 #Tools Off
 
 %VERSION_MAJOR = 1
-%VERSION_MINOR = 4
-%VERSION_REVISION = 4
+%VERSION_MINOR = 5
+%VERSION_REVISION = 0
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -28,6 +32,22 @@
 '------------------------------------------------------------------------------
 '*** Enumeration/TYPEs ***
 '------------------------------------------------------------------------------
+Type ParamsTYPE
+   Subfolders As Byte
+   Verbose As Byte
+   CompareFlag As Byte
+   FileSize As Quad
+End Type
+
+Type FileSizeTYPE
+   Lo As Dword
+   Hi As Dword
+End Type
+
+Union FileSizeUNION
+   Full As Quad
+   Part As FileSizeTYPE
+End Union
 '------------------------------------------------------------------------------
 '*** Declares ***
 '------------------------------------------------------------------------------
@@ -53,18 +73,22 @@ Function PBMain () As Long
 '  Changed: 10.11.2016
 '           - Use own command line parsing instead of buildin PARSE in order
 '           to deal with long folder/file names
+'           30.01.2017
+'           - Resolve absolute and UNC path, if the passed parameter is a relative path
+'           and output the information in the application's intro
 '------------------------------------------------------------------------------
    Local sPath, sTime, sFilePattern, sCmd, sTemp As String
    Local i, j As Dword
-   Local lSubfolders, lResult, lVerbose, lTemp As Long
+   Local lResult, lTemp As Long
    Local vntResult As Variant
+   Local udtCfg As ParamsTYPE
 
    Local oPTNow As IPowerTime
    Let oPTNow = Class "PowerTime"
 
    ' Application intro
    ConHeadline "DeleteFilesOlderThan", %VERSION_MAJOR, %VERSION_MINOR, %VERSION_REVISION
-   ConCopyright "2013-2016", $COMPANY_NAME
+   ConCopyright "2013-2017", $COMPANY_NAME
    Print ""
 
    Trace New ".\DeleteFilesOlderThan.tra"
@@ -97,9 +121,11 @@ Function PBMain () As Long
    ' /f= or /filepattern=
    ' /s= or /subfolders=
    ' /v= or /verbose
+   ' /fst or /filesmallerthan
+   ' /fgt or /filesgreaterthan
    i = o.ValuesCount
 
-   If (i < 2) Or (i > 5) Then
+   If (i < 2) Or (i > 6) Then
       Print "Invalid number of parameters."
       Print ""
       ShowHelp
@@ -129,13 +155,28 @@ Function PBMain () As Long
    ' ** Recurse subfolders
    If IsTrue(o.HasParam("s", "subfolders")) Then
       vntResult = o.GetValueByName("s", "subfolders")
-      lSubfolders = Val(Variant$(vntResult))
+      udtCfg.Subfolders = Val(Variant$(vntResult))
    End If
 
    ' ** Verbose output
    If IsTrue(o.HasParam("v", "verbose")) Then
       vntResult = o.GetValueByName("v", "verbose")
-      lVerbose = Sgn(Abs(Val(Variant$(vntResult))))
+      udtCfg.Verbose = Sgn(Abs(Val(Variant$(vntResult))))
+   End If
+
+   ' ** File size?
+   ' Smaller than
+   If IsTrue(o.HasParam("fst", "filessmallerthan")) Then
+      sTemp = Variant$(o.GetValueByName("fst", "filessmallerthan"))
+      udtCfg.FileSize = CalcVal(sTemp)
+      udtCfg.CompareFlag = -1
+   End If
+
+   ' Greater than
+   If IsTrue(o.HasParam("fgt", "filesgreaterthan")) Then
+      sTemp = Variant$(o.GetValueByName("fgt", "filesgreaterthan"))
+      udtCfg.FileSize = CalcVal(sTemp)
+      udtCfg.CompareFlag = 1
    End If
 
    ' ** Defaults
@@ -143,14 +184,35 @@ Function PBMain () As Long
       sFilePattern = "*.*"
    End If
 
+   ' Determine if it's a relative or absolute path, i.e. .\MyFolder or C:\MyFolder and/or a UNC share
+   Local sPathFull As String
+   sPathFull = sPath
+   sPathFull = FullPathAndUNC(sPath)
+
    ' Echo the CLI parameters
    Con.StdOut "Time              : " & sTime
-   Con.StdOut "Folder            : " & sPath
+   Con.StdOut "Folder            : " & sPath;
+   ' If path is a relative path, display the full path also
+   If LCase$(NormalizePath(sPath)) = LCase$(NormalizePath(sPathFull)) Then
+      Con.StdOut ""
+   Else
+      Con.StdOut " (" & sPathFull & ")"
+   End If
    Con.StdOut "File pattern      : " & sFilePattern
-   Con.StdOut "Recurse subfolders: " & IIf$(IsTrue(lSubfolders), "True", "False")
-   Con.StdOut "Verbose           : " & IIf$(IsTrue(lVerbose), "True", "False")
+   Con.StdOut "Recurse subfolders: " & IIf$(IsTrue(udtCfg.Subfolders), "True", "False")
+   Con.StdOut "Verbose           : " & IIf$(IsTrue(udtCfg.Verbose), "True", "False")
+   ' File size?
+   If udtCfg.CompareFlag <> 0 Then
+      Select Case udtCfg.CompareFlag
+      Case < 0
+         Con.StdOut "Files smaller than: " & sTemp & " (" & Format$(udtCfg.FileSize, "#0,") & " bytes)
+      Case > 0
+         Con.StdOut "Files greater than: " & sTemp & " (" & Format$(udtCfg.FileSize, "#0,") & " bytes)
+      End Select
 
-   If IsTrue(lVerbose) Then
+   End If
+
+   If IsTrue(udtCfg.Verbose) Then
       Call oPTNow.Now()
       Con.StdOut "Current date/time : " & oPTNow.DateString & ", " & oPTNow.TimeStringFull
    End If
@@ -192,7 +254,7 @@ Function PBMain () As Long
    Trace On
 
    Local qudFileSizeTotal As Quad   ' Total space free by deleted files
-   lResult = DeleteFiles(sPath, sTime, sFilePattern, lSubfolders, lVerbose, qudFileSizeTotal)
+   lResult = DeleteFiles(sPath, sTime, sFilePattern, udtCfg, qudFileSizeTotal)
    StdOut ""
    StdOut "Done. " & Format$(lResult) & " file(s) deleted."
    sTemp = Trim$(GetSizeString(qudFileSizeTotal))
@@ -208,10 +270,10 @@ Function PBMain () As Long
 End Function
 '---------------------------------------------------------------------------
 
-Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePattern As String, ByVal lSubfolders As Long, ByVal lVerbose As Long, _
+Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePattern As String, ByVal udtCfg As ParamsTYPE, _
    ByRef qudFileSizeTotal As Quad) As Long
 '------------------------------------------------------------------------------
-'Purpose  : Recursevly scan folders for the file patterns passed and delete files
+'Purpose  : Recursivly scan folders for the file patterns passed and delete files
 '           older than sTime
 '
 'Prereq.  : -
@@ -274,15 +336,15 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 
                sFile = Remove$(udtWFD.cFileName, Any Chr$(0))
 
-               If IsTrue(lVerbose) Then
+               If IsTrue(udtCfg.Verbose) Then
                   sFileTime = GetFileTimeStr(udtWFD)
                End If
 
-               If IsTrue(IsDeleteMatch(sTime, udtWFD)) Then
+               If IsTrue(IsDeleteMatch(sTime, udtWFD, udtCfg)) Then
 
                   sMsg = "  - Deleting "
                   Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
-                  If IsTrue(lVerbose) Then
+                  If IsTrue(udtCfg.Verbose) Then
                      Con.StdOut "    Time stamp: " & sFileTime;
                   End If
                   Incr lCount
@@ -291,7 +353,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                      ' Get the file size before deleting it
                      qudFileSize = GetThisFileSize(udtWFD)
                      Kill NormalizePath(sPath) & sFile
-                     If IsTrue(lVerbose) Then
+                     If IsTrue(udtCfg.Verbose) Then
                         Con.StdOut " - File size: " & Format$(qudFileSize, "0,") & " bytes"
                      End If
 
@@ -299,7 +361,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                      Con.Color 12, -1
                      sMsg = "  - ERROR: can't delete "
                      Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
-                     If IsTrue(lVerbose) Then
+                     If IsTrue(udtCfg.Verbose) Then
                         Con.StdOut ""
                      End If
                      Con.Color 7, -1
@@ -310,7 +372,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 
                   sMsg = "  - Skipping "
                   Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
-                  If IsTrue(lVerbose) Then
+                  If IsTrue(udtCfg.Verbose) Then
                      Con.StdOut "    Time stamp: " & sFileTime
                   End If
 
@@ -330,7 +392,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
       Con.StdOut ""
 
 
-      If IsTrue(lSubfolders) Then  'if to search in subdirectories.
+      If IsTrue(udtCfg.Subfolders) Then  'if to search in subdirectories.
 
          szSourceFile = NormalizePath(sPath) & "*"
          hSearch = FindFirstFileW(szSourceFile, udtWFD)
@@ -343,7 +405,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                   And (udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_HIDDEN) = 0 Then  ' If dirs, but not hidden..
 
                   If udtWFD.cFileName <> "." And udtWFD.cFileName <> ".." Then          ' Not these..
-                     lCount = lCount + DeleteFiles(NormalizePath(sPath) & RTrim$(udtWFD.cFileName, $Nul), sTime, sFilePattern, lSubfolders, lVerbose, qudFileSizeTotal)
+                     lCount = lCount + DeleteFiles(NormalizePath(sPath) & RTrim$(udtWFD.cFileName, $Nul), sTime, sFilePattern, udtCfg, qudFileSizeTotal)
                   End If
 
                End If
@@ -363,11 +425,31 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 End Function
 '---------------------------------------------------------------------------
 
-Function IsDeleteMatch(ByVal sTime As String, ByVal udt As DirData) As Long
-
+Function IsDeleteMatch(ByVal sTime As String, ByVal udt As DirData, ByVal udtCfg As ParamsTYPE) As Long
+'------------------------------------------------------------------------------
+'Purpose  : Determine if a file matches the deletion criterias
+'
+'Prereq.  : -
+'Parameter: sTime    - Time value as passed via parameter
+'           udt      - File information about the current file (Win32_Find_Data)
+'           udtCfg   - Parameters passed
+'Returns  : -
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: 10.11.2016
+'           - Use own command line parsing instead of buildin PARSE in order
+'           to deal with long folder/file names
+'           11.11.2016
+'           - Sum up size of files that were deleted
+'           30.01.2017
+'           - Compare file size in addition to file time
+'------------------------------------------------------------------------------
    Local oPTFile, oPTNow As IPowerTime
    Local dwValue As Dword
    Local sUnit As String
+   Local unFS As FileSizeUNION
 
    Let oPTFile = Class "PowerTime":Let oPTNow = Class "PowerTime"
    Call oPTNow.Now()
@@ -389,14 +471,30 @@ Function IsDeleteMatch(ByVal sTime As String, ByVal udt As DirData) As Long
       Call oPTNow.AddYears(-dwValue)
    End Select
 
+   unFS.Part.Lo = udt.FileSizeLow
+   unFS.Part.Hi = udt.FileSizeHigh
+
    Trace Print "FileTime: " & Format$(oPTFile.FileTime)
    Trace Print "NowTime : " & Format$(oPTNow.FileTime)
+   Trace Print " - udtCfg.FileSize: " & Format$(udtCfg.FileSize)
+   Trace Print " - unFS.Full      : " & Format$(unFS.Full)
+
+   ' Assume false
+   IsDeleteMatch = %False
 
    If oPTFile.FileTime <= oPTNow.FileTime Then
-      IsDeleteMatch = %True
-   Else
-      IsDeleteMatch = %False
+      If udtCfg.CompareFlag = 0 Then
+         IsDeleteMatch = %True
+      Else
+         If ((udtCfg.CompareFlag < 0) And (unFS.Full < udtCfg.FileSize)) Or ((udtCfg.CompareFlag > 0) And (unFS.Full > udtCfg.FileSize)) Then
+            IsDeleteMatch = %True
+            Trace Print "  - Size: True"
+         End If
+      End If
    End If
+
+   ' *** Debug
+   'IsDeleteMatch = %False
 
 End Function
 '---------------------------------------------------------------------------
@@ -420,19 +518,25 @@ Sub ShowHelp
    Con.StdOut "--------------------"
    Con.StdOut "DeleteFilesOlderThan deletes files matching the passed file pattern and which are older than the given time specification from a folder."
    Con.StdOut ""
-   Con.StdOut "Usage:   DeleteFilesOlderThan /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] [/subfolders=0|1]"
-   Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1]"
+   Con.StdOut "Usage:   DeleteFilesOlderThan _"
+   Con.StdOut "            /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] _"
+   Con.StdOut "            [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>]"
+   Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>]"
    Con.StdOut "i.e.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
    Con.StdOut "         DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1"
    Con.StdOut ""
    Con.StdOut "Parameters"
    Con.StdOut "----------"
-   Con.StdOut "/t or /time        = time specification"
-   Con.StdOut "/p or /path        = (start) folder"
-   Con.StdOut "/f or /filepattern = file pattern"
+   Con.StdOut "/t or /time               = time specification"
+   Con.StdOut "/p or /path               = (start) folder"
+   Con.StdOut "/f or /filepattern        = file pattern"
    Con.StdOut "       If omitted, all files are scanned (equals /f=*.*)."
-   Con.StdOut "/s or /subfolders  = recurse subfolders yes(1) or no (0)"
+   Con.StdOut "/s or /subfolders         = recurse subfolders yes(1) or no (0)"
    Con.StdOut "       If omitted, only the folder passed via /p is scanned for matching files (equals /s=0)."
+   Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
+   Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."
+   Con.StdOut ""
+   Con.StdOut "Please note that you may only use *either* /fst or /fgt. You can't use both parameters. If you happen to pass both parameters, the last one 'wins'."
    Con.StdOut ""
    Con.StdOut "You may specify more than one file pattern for the parameter /f by using ; (semicolon) as a separator, i.e."
    Con.StdOut "       /f=*.doc;*.rtf -> deletes all *.doc and all *.rtf files from the specified folder."
@@ -443,6 +547,15 @@ Sub ShowHelp
    Con.StdOut "        w = week  i.e. 2w"
    Con.StdOut "        m = month i.e. 3m"
    Con.StdOut "        y = year  i.e. 4y"
+   Con.StdOut ""
+   Con.StdOut "Allowed file size units:"
+   Con.StdOut "   <empty> = Byte, i.e. 100"
+   Con.StdOut "   kb = Kilobyte, i.e. 100kb"
+   Con.StdOut "   mb = Megabyte, i.e. 100mb"
+   Con.StdOut "   gb = Gigabyte, i.e. 100gb"
+   Con.StdOut "   tb = Terabyte, i.e. 100tb"
+   Con.StdOut ""
+   Con.StdOut "Please note: 1 KB = 1024 byte, 1 MB = 1024 KB etc."
    Con.StdOut ""
 
 End Sub
@@ -525,3 +638,97 @@ Function CalcVal (ByVal sValue As String) As Quad
 
 End Function
 '---------------------------------------------------------------------------
+
+Function FullPathAndUNC(ByVal sPath As String) As String
+'------------------------------------------------------------------------------
+'Purpose  : Resolves/expands a path from a relative path to an absolute path
+'           and UNC path, if the drive is mapped
+'
+'Prereq.  : -
+'Parameter: -
+'Returns  : -
+'Note     : -
+'
+'   Author: Knuth Konrad 30.01.2017
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
+
+   ' Determine if it's a relative or absolute path, i.e. .\MyFolder or C:\MyFolder
+   Local szPathFull As AsciiZ * %Max_Path, sPathFull As String, lResult As Long
+   sPathFull = sPath
+   lResult = GetFullPathName(ByCopy sPath, %Max_Path, szPathFull, ByVal 0)
+   If lResult <> 0 Then
+      sPathFull = Left$(szPathFull, lResult)
+   End If
+
+   ' Now that we've got that sorted, resolve the UNC path, if any
+   Local dwError As Dword
+   FullPathAndUNC = UNCPathFromDriveLetter(sPathFull, dwError, 0)
+
+End Function
+'------------------------------------------------------------------------------
+
+Function UNCPathFromDriveLetter(ByVal sPath As String, ByRef dwError As Dword, _
+   Optional ByVal lDriveOnly As Long) As String
+'------------------------------------------------------------------------------
+'Purpose  : Returns a fully qualified UNC path location from a (mapped network)
+'           drive letter/share
+'
+'Prereq.  : -
+'Parameter: sPath       - Path to resolve
+'           dwError     - ByRef(!), Returns the error code from the Win32 API, if any
+'           lDriveOnly  - If True, return only the drive letter
+'Returns  : -
+'Note     : -
+'
+'   Author: Knuth Konrad 17.07.2013
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
+' 32-bit declarations:
+Local sTemp As String
+Local szDrive As AsciiZ * 3, szRemoteName As AsciiZ * 1024
+Local lSize, lStatus As Long
+
+' The size used for the string buffer. Adjust this if you
+' need a larger buffer.
+Local lBUFFER_SIZE As Long
+lBUFFER_SIZE = 1024
+
+If Len(sPath) > 2 Then
+   sTemp = Mid$(sPath, 3)
+   szDrive = Left$(sPath, 2)
+Else
+   szDrive = sPath
+End If
+
+' Return the UNC path (\\Server\Share).
+lStatus = WNetGetConnectionA(szDrive, szRemoteName, lBUFFER_SIZE)
+
+' Verify that the WNetGetConnection() succeeded. WNetGetConnection()
+' returns 0 (NO_ERROR) if it successfully retrieves the UNC path.
+If lStatus = %NO_ERROR Then
+
+   If IsTrue(lDriveOnly) Then
+
+      ' Display the UNC path.
+      UNCPathFromDriveLetter = Trim$(szRemoteName, Any $Nul & $WhiteSpace)
+
+   Else
+
+      UNCPathFromDriveLetter = Trim$(szRemoteName, Any $Nul & $WhiteSpace) & sTemp
+
+   End If
+
+Else
+
+   ' Return the original filename/path unaltered
+   UNCPathFromDriveLetter = sPath
+
+End If
+
+dwError = lStatus
+
+End Function
+'------------------------------------------------------------------------------
