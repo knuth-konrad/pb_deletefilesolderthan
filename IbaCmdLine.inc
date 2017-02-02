@@ -7,19 +7,16 @@ $DELIM_VALUE = "="
 Class cBACmdLine
 
 
-   Instance msParamDelimiter As String ' Parameterbegrenzer, üblicherweise ein "/"
-   Instance msValueDelimiter As String ' Begrenzer zwischen Parametername und
-                                       ' Parameterwert, üblicherweise ein "="
-   Instance mdwParamCount As Dword     ' Anzahl der Parameter
-   Instance masParams() As String      ' Alle Parameternamen
-   Instance mavntValues() As Variant   ' Alle Parameterwerte. Variant weil ein Wert
-                                       ' alles sein kann
+   Instance msParamDelimiter As String ' Parameter delimiter, typically a "/"
+   Instance msValueDelimiter As String ' Key/value delimiter, typically a "="
+   Instance mdwParamCount As Dword     ' Number of parameters
+   Instance masParams() As String      ' All parameter keys
 
    Instance mdwParamID As Dword        ' Collection key of parameter
    Instance mdwValueID As Dword        ' Collection key of value
 
-   Instance mcolValues As IPowerCollection   ' Alle Parameterwerte. Variant weil ein Wert
-                                             ' alles sein kann
+   Instance mcolValues As IPowerCollection   ' All parameter values. Data type Variant, because
+                                             ' a value can be anything
 '------------------------------------------------------------------------------
 
    Class Method Create()
@@ -70,7 +67,8 @@ Class cBACmdLine
       'Purpose  : Returns an formatted error string from an (PB) error number
       '
       'Prereq.  : -
-      'Parameter: -
+      'Parameter: lErr        - (PB) runtime error number
+      '           vntPrefix   - Optional prefix for the returned string
       'Returns  : -
       'Note     : -
       '
@@ -90,7 +88,18 @@ Class cBACmdLine
       '------------------------------------------------------------------------------
 
       Method GetParamByIndex(ByVal lIndex As Long) As String
-
+      '------------------------------------------------------------------------------
+      'Purpose  : Retrieve a parameter's key by index
+      '
+      'Prereq.  : -
+      'Parameter: lIndex   - 1 based collection index
+      'Returns  : -
+      'Note     : -
+      '
+      '   Author: Knuth Konrad 12.02.2016
+      '   Source: -
+      '  Changed: -
+      '------------------------------------------------------------------------------
          Local vntValue As Variant
 
          Trace On
@@ -131,7 +140,7 @@ Class cBACmdLine
       'Returns  : -
       'Note     : -
       '
-      '   Author: Knuth Konrad
+      '   Author: Knuth Konrad 12.02.2016
       '   Source: -
       '  Changed: 10.11.2016
       '           - Check for an additional (alias) parameter having the same
@@ -191,7 +200,19 @@ Class cBACmdLine
       '------------------------------------------------------------------------------
 
       Method ValuesAdd(ByVal wsKey As WString, ByVal vntValue As Variant) As String
-
+      '------------------------------------------------------------------------------
+      'Purpose  : Add a key/value pair to the parameters collection
+      '
+      'Prereq.  : -
+      'Parameter: wsKey    - Key to add. Make sure it's unique!
+      '           vntValue - Value to add
+      'Returns  : -
+      'Note     : -
+      '
+      '   Author: Knuth Konrad 12.02.2016
+      '   Source: -
+      '  Changed: -
+      '------------------------------------------------------------------------------
          Local hResult As Long
 
          Trace On
@@ -213,6 +234,18 @@ Class cBACmdLine
       '------------------------------------------------------------------------------
 
       Method ValuesClear()
+      '------------------------------------------------------------------------------
+      'Purpose  : Clear all values
+      '
+      'Prereq.  : -
+      'Parameter: -
+      'Returns  : -
+      'Note     : -
+      '
+      '   Author: Knuth Konrad 12.02.2016
+      '   Source: -
+      '  Changed: -
+      '------------------------------------------------------------------------------
 
          Trace On
          Trace Print FuncName$
@@ -228,6 +261,18 @@ Class cBACmdLine
       '------------------------------------------------------------------------------
 
       Method ValuesCount() As Dword
+      '------------------------------------------------------------------------------
+      'Purpose  : Return the number of values
+      '
+      'Prereq.  : -
+      'Parameter: -
+      'Returns  : -
+      'Note     : -
+      '
+      '   Author: Knuth Konrad 12.02.2016
+      '   Source: -
+      '  Changed: -
+      '------------------------------------------------------------------------------
 
          Trace On
          Trace Print FuncName$
@@ -244,7 +289,18 @@ Class cBACmdLine
       '------------------------------------------------------------------------------
 
       Method ValuesGet(ByVal lIndex As Long) As Variant
-
+      '------------------------------------------------------------------------------
+      'Purpose  : Retrieve a value by index
+      '
+      'Prereq.  : -
+      'Parameter: lIndex   - Index of value collection
+      'Returns  : -
+      'Note     : -
+      '
+      '   Author: Knuth Konrad 12.02.2016
+      '   Source: -
+      '  Changed: -
+      '------------------------------------------------------------------------------
          Local vntValue As Variant, wsKey As WString
 
          Trace On
@@ -270,11 +326,11 @@ Class cBACmdLine
 
       Method GetValueByIndex(ByVal lIndex As Long) As Variant
       '------------------------------------------------------------------------------
-      'Purpose  : Liefert den Wert eines Parameters
+      'Purpose  : Retrieve a value by index (wrapper/alias for ValuesGet)
       '
       'Prereq.  : -
-      'Parameter: vntIndex -  Nummer des Parameters (1 bis Anzahl Parameter(=ParamCount))
-      'Returns  : Wert des Parameters
+      'Parameter: lIndex -  Index of value collection (1 to number of parameters(=ParamCount))
+      'Returns  : Value of this parameter
       'Note     : -
       '
       '   Author: Knuth Konrad 27.09.2000
@@ -285,7 +341,7 @@ Class cBACmdLine
          Trace On
          Trace Print FuncName$
 
-         ' Index im gültigen Bereich?
+         ' Index within range?
          If lIndex >= 1 And lIndex <= mcolValues.Count Then
             Method = me.ValuesGet(lIndex)
          End If
@@ -296,20 +352,17 @@ Class cBACmdLine
       Method GetValueByName(ByVal sParam As String, Optional ByVal vntParamAlias As Variant,  _
          Optional vntCaseSensitive As Variant) As Variant
       '------------------------------------------------------------------------------
-      'Purpose  : Liefert den Wert eines Parameters
+      'Purpose  : Retrieve a parameter's value by name (key)
       '
       'Prereq.  : -
-      'Parameter: sParam            -  Name des Parameters dessen Wert gesucht wird
-      '           bolCaseSensitive  -  Groß-/Kleinschreibung beachten
+      'Parameter: sParam            -  Name (key) to retrieve value for
+      '           bolCaseSensitive  -  sParam is case sensitive
       'Returns  : -
       'Note     : -
       '
       '   Author: Knuth Konrad 27.09.2000
       '   Source: -
-      '  Changed: 10.11.2016
-      '           - Check for an additional (alias) parameter having the same
-      '           meaning at the same time.
-      '           I.e. /f and /file
+      '  Changed: -
       '------------------------------------------------------------------------------
          Local bolCaseSensitive As Long
          Local vntValue As Variant
@@ -385,13 +438,12 @@ Class cBACmdLine
 
       Method Init(ByVal sCmd As String) As Long
       '------------------------------------------------------------------------------
-      'Purpose  : Diese Prozedur muß els erste Prozedur aufgerufen werden. Sie übernimmt
-      '           die Kommandozeile und wertet sie aus.
+      'Purpose  : Initializes this object. Must be called *prior* to using any other
+      '           methods.
       '
       'Prereq.  : -
-      'Parameter: sCmd  -  Per COMMAND$ empfangene Kommandozeile
-      'Returns  : True  -  Kommandozeile konnte ausgewertet werden
-      '           False -  Ein Fehler ist aufgetreten
+      'Parameter: sCmd        -  (PB's) COMMAND$
+      'Returns  : True/False  - Init succeeded?
       'Note     : -
       '
       '   Author: Knuth Konrad 27.09.2000
@@ -410,7 +462,7 @@ Class cBACmdLine
          On Error GoTo InitError
 
          ' ** Safe guards
-         ' Enthielt CLI Werte?
+         ' Any parameters at all?
          sCmd = LTrim$(sCmd)
          lParamCount = ParseCount(sCmd, msParamDelimiter)
          If lParamCount < 2 Then
@@ -434,15 +486,15 @@ Class cBACmdLine
 
             Trace Print "  - awsParams(i): (" & Format$(i) & "), " & awsParams(i)
 
-            ' Nur wenn auch ein Parameter da ist...
+            ' Only if there's at least one parameter...
             If Len(Trim$(awsParams(i))) > 0 Then
 
                wsKey = Trim$(Remove$(Extract$(awsParams(i), msValueDelimiter), msParamDelimiter))
 
                Trace Print "  - wsKey: " & wsKey
 
-               ' Parameter in der Art /User=Knuth.
-               ' "User" ist der Parameter, "Knuth" ist der Wert
+               ' Parameter is of type /User=Knuth.
+               ' "User" is the key, "Knuth" the value
                If InStr(awsParams(i), msValueDelimiter) > 0 Then
                   vntValue = Trim$(Remain$(awsParams(i), msValueDelimiter))
 
@@ -451,8 +503,8 @@ Class cBACmdLine
                   Me.ValuesAdd(wsKey, vntValue)
 
                Else
-               'Parameter in der Art /Quit.
-               '"Quit" ist der Parameter, als Wert wird "True" angenommen
+               'Parameter is of type /Quit.
+               '"Quit" is the key, if present, the value is %True
                   Me.ValuesAdd(wsKey, %TRUE)
 
                   Trace Print "  - vntValue: %TRUE"
@@ -472,7 +524,7 @@ Class cBACmdLine
       InitError:
          Method = %FALSE
          Trace Print " -- Init(sCmd) Error: " & sCmd & Format$(Err) & ", " & Me.ErrString(Err)
-         ' Collection "aufräumen"
+         ' Cleanup collection
          Me.ValuesClear
          ErrClear
          Resume InitExit
