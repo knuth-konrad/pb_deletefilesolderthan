@@ -12,6 +12,8 @@
 '           - New optional parameters: /fst, /filessmallerthan and /fgt /filesgreaterthan
 '           - Resolve absolute and UNC path, if the passed parameter is a relative path
 '           and output the information in the application's intro
+'           10.03.2017
+'           - Allow deletion to recycle bin (/rb)
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -21,7 +23,7 @@
 #Tools Off
 
 %VERSION_MAJOR = 1
-%VERSION_MINOR = 5
+%VERSION_MINOR = 6
 %VERSION_REVISION = 0
 
 ' Version Resource information
@@ -37,6 +39,7 @@ Type ParamsTYPE
    Verbose As Byte
    CompareFlag As Byte
    FileSize As Quad
+   RecycleBin As Byte
 End Type
 
 Type FileSizeTYPE
@@ -123,9 +126,10 @@ Function PBMain () As Long
    ' /v= or /verbose
    ' /fst or /filesmallerthan
    ' /fgt or /filesgreaterthan
+   ' /rb or /recyclebin
    i = o.ValuesCount
 
-   If (i < 2) Or (i > 6) Then
+   If (i < 2) Or (i > 7) Then
       Print "Invalid number of parameters."
       Print ""
       ShowHelp
@@ -155,13 +159,22 @@ Function PBMain () As Long
    ' ** Recurse subfolders
    If IsTrue(o.HasParam("s", "subfolders")) Then
       vntResult = o.GetValueByName("s", "subfolders")
-      udtCfg.Subfolders = Val(Variant$(vntResult))
+      'udtCfg.Subfolders = Val(Variant$(vntResult))
+      udtCfg.Subfolders = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+   ' ** Delete to recycle bin
+   If IsTrue(o.HasParam("rb", "recyclebin")) Then
+      vntResult = o.GetValueByName("rb", "recyclebin")
+      'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
+      udtCfg.RecycleBin = Sgn(Abs(VariantVT(Variant$(vntResult))))
    End If
 
    ' ** Verbose output
    If IsTrue(o.HasParam("v", "verbose")) Then
       vntResult = o.GetValueByName("v", "verbose")
-      udtCfg.Verbose = Sgn(Abs(Val(Variant$(vntResult))))
+      ' udtCfg.Verbose = Sgn(Abs(Val(Variant$(vntResult))))
+      udtCfg.Verbose = Sgn(Abs(VariantVT(Variant$(vntResult))))
    End If
 
    ' ** File size?
@@ -201,6 +214,7 @@ Function PBMain () As Long
    Con.StdOut "File pattern      : " & sFilePattern
    Con.StdOut "Recurse subfolders: " & IIf$(IsTrue(udtCfg.Subfolders), "True", "False")
    Con.StdOut "Verbose           : " & IIf$(IsTrue(udtCfg.Verbose), "True", "False")
+   Con.StdOut "Delete to Rec. Bin: " & IIf$(IsTrue(udtCfg.RecycleBin), "True", "False")
    ' File size?
    If udtCfg.CompareFlag <> 0 Then
       Select Case udtCfg.CompareFlag
@@ -288,6 +302,8 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 '           to deal with long folder/file names
 '           - 11.11.2016
 '           Sum up size of files that were deleted
+'           10.03.2017
+'           - Allow deletion to recycle bin (/rb)
 '------------------------------------------------------------------------------
 
    Local sSourceFile, sPattern, sFile, sFileTime As String
@@ -352,7 +368,11 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                   Try
                      ' Get the file size before deleting it
                      qudFileSize = GetThisFileSize(udtWFD)
-                     Kill NormalizePath(sPath) & sFile
+                     If IsFalse(udtCfg.RecycleBin) Then
+                        Kill NormalizePath(sPath) & sFile
+                     Else
+                        Call Delete2RecycleBin(NormalizePath(sPath) & sFile)
+                     End If
                      If IsTrue(udtCfg.Verbose) Then
                         Con.StdOut " - File size: " & Format$(qudFileSize, "0,") & " bytes"
                      End If
@@ -520,8 +540,8 @@ Sub ShowHelp
    Con.StdOut ""
    Con.StdOut "Usage:   DeleteFilesOlderThan _"
    Con.StdOut "            /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] _"
-   Con.StdOut "            [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>]"
-   Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>]"
+   Con.StdOut "            [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1]"
+   Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1]"
    Con.StdOut "i.e.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
    Con.StdOut "         DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1"
    Con.StdOut ""
@@ -533,6 +553,8 @@ Sub ShowHelp
    Con.StdOut "       If omitted, all files are scanned (equals /f=*.*)."
    Con.StdOut "/s or /subfolders         = recurse subfolders yes(1) or no (0)"
    Con.StdOut "       If omitted, only the folder passed via /p is scanned for matching files (equals /s=0)."
+   Con.StdOut "/rb or /recyclebin        = delete to recycle bin instead of permanntly delete."
+   Con.StdOut "       If omitted, defaults to 0 = delete files permanently."
    Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
    Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."
    Con.StdOut ""
