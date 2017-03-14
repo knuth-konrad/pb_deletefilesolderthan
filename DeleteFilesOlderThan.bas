@@ -24,7 +24,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 6
-%VERSION_REVISION = 0
+%VERSION_REVISION = 1
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -601,43 +601,42 @@ Function GetSizeString(ByVal q As Quad) As String
 
       If (q \ 1024&&^4) > 0 Then
       ' TB
-         qudDivisor = q / 1024&&^4
+         qudDivisor = q \ 1024&&^4
          q = q - (qudDivisor * 1024&&^4)
-         Trace Print "TB: " & Format$(q)
-         sSize = Format$(qudDivisor) & "TB " & GetSizeString(q)
-         'function = Format$(qudDivisor) & "TB " & GetSizeString(q)
+         Trace Print "TB: " & Format$(qudDivisor)
+         sSize = sSize & Format$(qudDivisor) & "TB "
       ElseIf  q \ 1024&&^3 > 0 Then
       ' GB
          qudDivisor = q \ 1024&&^3
          q = q - (qudDivisor * 1024&&^3)
-         Trace Print "GB: " & Format$(q)
-         sSize = Format$(qudDivisor) & "GB " & GetSizeString(q)
-         'function = Format$(qudDivisor) & "GB " & GetSizeString(q)
+         Trace Print "GB: " & Format$(qudDivisor)
+         sSize = sSize & Format$(qudDivisor) & "GB "
       ElseIf  q \ 1024&&^2 > 0 Then
       ' MB
          qudDivisor = q \ 1024&&^2
          q = q - (qudDivisor * 1024&&^2)
-         Trace Print "MB: " & Format$(q)
-         sSize = Format$(qudDivisor) & "MB " & GetSizeString(q)
-         'function = Format$(qudDivisor) & "MB " & GetSizeString(q)
-      ElseIf  q \ 1024&&^3 > 0 Then
+         Trace Print "MB: " & Format$(qudDivisor)
+         sSize = sSize & Format$(qudDivisor) & "MB "
+      ElseIf  q \ 1024&&^1 > 0 Then
       ' KB
          qudDivisor = q \ 1024&&^1
          q = q - (qudDivisor * 1024&&^1)
-         Trace Print "KB: " & Format$(q)
-         sSize = Format$(qudDivisor) & "KB " & GetSizeString(q)
-         'function = Format$(qudDivisor) & "KB " & GetSizeString(q)
+         Trace Print "KB: " & Format$(qudDivisor)
+         sSize = sSize & Format$(qudDivisor) & "KB "
       Else
       ' B
-         'Trace Print "B: " & Format$(q)
-         'function = sSize & Format$(q) & "B"
-         q = q - q
+         qudDivisor = q \ 1024&&^0
+         q = q - (qudDivisor * 1024&&^0)
+         Trace Print "B: " & Format$(qudDivisor)
+         sSize = sSize & Format$(qudDivisor) & "B"
+         'sSize = sSize & Format$(q) & "B"
+         'q = q - q
          'exit function
       End If
 
    Loop
 
-   Function = sSize
+   Function = Trim$(sSize)
 
 End Function
 '---------------------------------------------------------------------------

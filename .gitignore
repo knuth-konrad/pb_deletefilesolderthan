@@ -10,6 +10,7 @@ DATA 1/
 [Bb]ackup.*
 *.log
 *.tra
+SizeTest.*
 
 # Other tools
 OpenFile.*
