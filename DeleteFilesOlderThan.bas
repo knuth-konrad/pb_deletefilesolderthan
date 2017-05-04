@@ -14,9 +14,12 @@
 '           and output the information in the application's intro
 '           10.03.2017
 '           - Allow deletion to recycle bin (/rb)
+'           04.05.2017
+'           - #Break on to prevent console context menu changes
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
+#Break On
 #Dim All
 
 #Debug Error Off
@@ -24,7 +27,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 6
-%VERSION_REVISION = 1
+%VERSION_REVISION = 2
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
