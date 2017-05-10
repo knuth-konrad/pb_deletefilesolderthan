@@ -16,18 +16,22 @@
 '           - Allow deletion to recycle bin (/rb)
 '           04.05.2017
 '           - #Break on to prevent console context menu changes
+'           10.05.2017
+'           - Switch from source code to SLL include
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
 #Break On
 #Dim All
 
+#Link "baCmdLine.sll"
+
 #Debug Error Off
 #Tools Off
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 6
-%VERSION_REVISION = 2
+%VERSION_REVISION = 3
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -59,7 +63,7 @@ End Union
 '------------------------------------------------------------------------------
 #Include Once "win32api.inc"
 #Include "sautilcc.inc"       ' General console helpers
-#Include ".\IbaCmdLine.inc"     ' Command line parameters parser
+'#Include ".\IbaCmdLine.inc"     ' Command line parameters parser
 '------------------------------------------------------------------------------
 '*** Variabels ***
 '------------------------------------------------------------------------------
