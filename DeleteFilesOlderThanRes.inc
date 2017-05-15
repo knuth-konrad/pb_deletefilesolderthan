@@ -1,4 +1,5 @@
 #Resource Icon, 1, "time_delete.ico"
+#Resource Manifest, 1, "DeleteFilesOlderThan.exe.manifest"
 
 #Resource VersionInfo
 #Resource FileVersion %VERSION_MAJOR, %VERSION_MINOR, %VERSION_REVISION, 0
@@ -11,8 +12,8 @@
 #Resource Version$ "LegalCopyright",   "Copyright 2013-2017 BasicAware"
 #Resource Version$ "OriginalFilename", "DeleteFilesOlderThan.exe"
 #Resource Version$ "ProductName",      "DeleteFilesOlderThan"
-#Resource Version$ "ProductVersion",   "1.6.3.0"
-#Resource Version$ "FileVersion",      "1.6.3.0"
+#Resource Version$ "ProductVersion",   "1.6.4.0"
+#Resource Version$ "FileVersion",      "1.6.4.0"
 #Resource Version$ "Comments",         "Written by Knuth Konrad"
 
 $COMPANY_NAME = "BasicAware"

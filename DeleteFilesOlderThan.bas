@@ -18,6 +18,8 @@
 '           - #Break on to prevent console context menu changes
 '           10.05.2017
 '           - Switch from source code to SLL include
+'           15.05.2017
+'           - Application manifest added
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -31,7 +33,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 6
-%VERSION_REVISION = 3
+%VERSION_REVISION = 4
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
