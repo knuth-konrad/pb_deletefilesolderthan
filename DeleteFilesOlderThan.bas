@@ -33,13 +33,21 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 6
-%VERSION_REVISION = 4
+%VERSION_REVISION = 5
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
 '------------------------------------------------------------------------------
 '*** Constants ***
 '------------------------------------------------------------------------------
+' Console colors
+%Green = 2
+%Red = 4
+%White = 7
+%Yellow = 14
+%LITE_GREEN = 10
+%LITE_RED = 12
+%INTENSE_WHITE = 15
 '------------------------------------------------------------------------------
 '*** Enumeration/TYPEs ***
 '------------------------------------------------------------------------------
@@ -244,34 +252,40 @@ Function PBMain () As Long
 
    ' Sanity checks of CLI parameters
    If Len(Trim$(sPath)) < 2 Then
+      Con.Color %LITE_RED, -1
       Print "Missing folder."
+      Con.Color %White, -1
       Print ""
       ShowHelp
       Exit Function
    End If
 
    If Not IsFolder(sPath) Then
+      Con.Color %LITE_RED, -1
       Print "Folder doesn't exist:" & sPath
+      Con.Color %White, -1
       Print ""
       ShowHelp
       Exit Function
    End If
 
    If Len(Trim$(sTime)) < 1 Then
+      Con.Color %LITE_RED, -1
       Print "Missing time."
+      Con.Color %White, -1
       Print ""
       ShowHelp
       Exit Function
    End If
 
-   If Len(Trim$(sTime)) > 1 Then
-      sTime = Trim$(sTime)
-      If Verify(Right$(sTime, 1), "dmwy") > 0 Then
-         Print "Invalid time unit."
-         Print ""
-         ShowHelp
-         Exit Function
-      End If
+   ' Ensure a time unit is given
+   If Tally(Right$(LCase$(Trim$(sTime)), 1), Any "dmwy") < 1 Then
+      Con.Color %LITE_RED, -1
+      Print "Missing/invalid time unit: " & Right$(LCase$(Trim$(sTime)), 1) & ". Valid units are d, w, m, y."
+      Con.Color %White, -1
+      Print ""
+      ShowHelp
+      Exit Function
    End If
 
    Trace On
@@ -562,7 +576,7 @@ Sub ShowHelp
    Con.StdOut "       If omitted, all files are scanned (equals /f=*.*)."
    Con.StdOut "/s or /subfolders         = recurse subfolders yes(1) or no (0)"
    Con.StdOut "       If omitted, only the folder passed via /p is scanned for matching files (equals /s=0)."
-   Con.StdOut "/rb or /recyclebin        = delete to recycle bin instead of permanntly delete."
+   Con.StdOut "/rb or /recyclebin        = delete to recycle bin instead of permanently delete."
    Con.StdOut "       If omitted, defaults to 0 = delete files permanently."
    Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
    Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."

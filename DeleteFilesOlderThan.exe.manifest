@@ -5,11 +5,11 @@
 	Sample application manifest file:
 -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0"> 
-  <assemblyIdentity version="1.1.14.0"
+  <assemblyIdentity version="1.6.5.0"
      processorArchitecture="X86"
-     name="AmadeusDocumentSorter"
+     name="DeleteFilesOlderThan"
      type="win32"/> 
-  <description>Sorts Amadeus documents (files) by type.</description> 
+  <description>Deletes files of a certain age.</description> 
    <dependency>
       <dependentAssembly>
       <!--
