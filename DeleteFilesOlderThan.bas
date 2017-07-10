@@ -20,6 +20,8 @@
 '           - Switch from source code to SLL include
 '           15.05.2017
 '           - Application manifest added
+'           10.07.2017
+'           - Recompile because of lib changes
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -33,7 +35,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 6
-%VERSION_REVISION = 5
+%VERSION_REVISION = 6
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
