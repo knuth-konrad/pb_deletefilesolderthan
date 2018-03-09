@@ -9,7 +9,7 @@
 
 #Resource Version$ "CompanyName",      "BasicAware"
 #Resource Version$ "FileDescription",  "Delete old files"
-#Resource Version$ "LegalCopyright",   "Copyright 2013-2017 BasicAware"
+#Resource Version$ "LegalCopyright",   "Copyright 2013-2018 BasicAware"
 #Resource Version$ "OriginalFilename", "DeleteFilesOlderThan.exe"
 #Resource Version$ "ProductName",      "DeleteFilesOlderThan"
 #Resource Version$ "ProductVersion",   "1.6.6.0"
