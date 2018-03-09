@@ -544,6 +544,18 @@ End Function
 '---------------------------------------------------------------------------
 
 Function GetFileTimeStr(ByVal udt As DirData) As String
+'------------------------------------------------------------------------------
+'Purpose  : Formats a given FILETIME structure's value as a readable sting
+'
+'Prereq.  : -
+'Parameter: udt   - File information about the current file (Win32_Find_Data)
+'Returns  : Localized date/time string
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
 
    Local oPTFile As IPowerTime
 
@@ -556,6 +568,18 @@ End Function
 '---------------------------------------------------------------------------
 
 Sub ShowHelp
+'------------------------------------------------------------------------------
+'Purpose  : Show usage help
+'
+'Prereq.  : -
+'Parameter: -
+'Returns  : -
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
 
    Con.StdOut ""
    Con.StdOut "DeleteFilesOlderThan"
@@ -608,19 +632,42 @@ End Sub
 '---------------------------------------------------------------------------
 
 Function GetThisFileSize(ByVal udtFileSize As WIN32_FIND_DATAW) As Quad
+'------------------------------------------------------------------------------
+'Purpose  : Derive a file's size from WIN32_FIND_DATAW
+'
+'Prereq.  : -
+'Parameter: -
+'Returns  : File size in bytes
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
    Function = udtFileSize.nFileSizeHigh * &H0100000000 + udtFileSize.nFileSizeLow
 End Function
 '---------------------------------------------------------------------------
 
 Function GetSizeString(ByVal q As Quad) As String
-
+'------------------------------------------------------------------------------
+'Purpose  : Format a file's size as a string, using common unit abbreviations,
+'           e.g. 1TB, 2GB
+'
+'Prereq.  : -
+'Parameter: -
+'Returns  : File size in bytes
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
    Local sSize As String
    Local qudDivisor As Quad
 
    Trace On
    Trace Print "q: " & Format$(q)
 
-   'Do While q > 1024
    Do While q > 0
 
       If (q \ 1024&&^4) > 0 Then
@@ -653,9 +700,6 @@ Function GetSizeString(ByVal q As Quad) As String
          q = q - (qudDivisor * 1024&&^0)
          Trace Print "B: " & Format$(qudDivisor)
          sSize = sSize & Format$(qudDivisor) & "B"
-         'sSize = sSize & Format$(q) & "B"
-         'q = q - q
-         'exit function
       End If
 
    Loop
@@ -666,6 +710,20 @@ End Function
 '---------------------------------------------------------------------------
 
 Function CalcVal (ByVal sValue As String) As Quad
+'------------------------------------------------------------------------------
+'Purpose  : Calculate the value in bytes of a size expression
+'           e.g. 1kb -> 1024
+'
+'Prereq.  : -
+'Parameter: Size value string
+'Returns  : Equiv. Size in bytes
+'Note     : Uses proper power of two for calculation instead of industry
+'           standard 1000
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
 
    sValue = LCase$(sValue)
    Select Case Right$(sValue, 2)
