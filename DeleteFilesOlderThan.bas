@@ -22,6 +22,8 @@
 '           - Application manifest added
 '           10.07.2017
 '           - Recompile because of lib changes
+'           18.06.2018
+'           - New parameter: /pp=i|b (ProcessPriority=Idle or Below normal)
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -34,8 +36,8 @@
 #Tools Off
 
 %VERSION_MAJOR = 1
-%VERSION_MINOR = 6
-%VERSION_REVISION = 6
+%VERSION_MINOR = 7
+%VERSION_REVISION = 0
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -59,6 +61,7 @@ Type ParamsTYPE
    CompareFlag As Byte
    FileSize As Quad
    RecycleBin As Byte
+   ProcessPriority As String * 1
 End Type
 
 Type FileSizeTYPE
@@ -145,6 +148,7 @@ Function PBMain () As Long
    ' /fst or /filesmallerthan
    ' /fgt or /filesgreaterthan
    ' /rb or /recyclebin
+   ' /pp or /processpriority
    i = o.ValuesCount
 
    If (i < 2) Or (i > 7) Then
@@ -186,6 +190,19 @@ Function PBMain () As Long
       vntResult = o.GetValueByName("rb", "recyclebin")
       'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
       udtCfg.RecycleBin = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+   ' ** Set process priority to 'idle' (IDLE_PRIORITY_CLASS) or
+   ' 'low' (BELOW_NORMAL_PRIORITY_CLASS)
+   If IsTrue(o.HasParam("pp", "processpriority")) Then
+      vntResult = o.GetValueByName("pp", "processpriority")
+      udtCfg.ProcessPriority = LCase$(Variant$(vntResult))
+      If (udtCfg.ProcessPriority <> "i") And (udtCfg.ProcessPriority <> "b") Then
+         udtCfg.ProcessPriority = "n"
+      End If
+   Else
+   ' Set default = NORMAL_PRIORITY_CLASS
+      udtCfg.ProcessPriority = "n"
    End If
 
    ' ** Verbose output
@@ -233,6 +250,9 @@ Function PBMain () As Long
    Con.StdOut "Recurse subfolders: " & IIf$(IsTrue(udtCfg.Subfolders), "True", "False")
    Con.StdOut "Verbose           : " & IIf$(IsTrue(udtCfg.Verbose), "True", "False")
    Con.StdOut "Delete to Rec. Bin: " & IIf$(IsTrue(udtCfg.RecycleBin), "True", "False")
+   Local sPP As String
+   sPP = udtCfg.ProcessPriority
+   Con.StdOut "Process priority  : " & Switch$(sPP = "i", "Idle", sPP = "b", "Below normal", sPP = "n", "Normal")
    ' File size?
    If udtCfg.CompareFlag <> 0 Then
       Select Case udtCfg.CompareFlag
@@ -329,7 +349,6 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 '           10.03.2017
 '           - Allow deletion to recycle bin (/rb)
 '------------------------------------------------------------------------------
-
    Local sSourceFile, sPattern, sFile, sFileTime As String
    Local sMsg, sTemp As String
    Local i, lCount As Long
@@ -345,6 +364,15 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 
    Trace On
    Trace Print FuncName$
+
+   ' Set this process' priority
+   Select Case LCase$(udtCfg.ProcessPriority)
+   Case "i"
+      ' %Idle_Priority_Class
+      Call SetProcessPriority(%Idle_Priority_Class)
+   Case "b"
+      Call SetProcessPriority(%BELOW_NORMAL_PRIORITY_CLASS)
+   End Select
 
    For i = 1 To ParseCount(sFilePattern, ";")
 
@@ -588,8 +616,8 @@ Sub ShowHelp
    Con.StdOut ""
    Con.StdOut "Usage:   DeleteFilesOlderThan _"
    Con.StdOut "            /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] _"
-   Con.StdOut "            [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1]"
-   Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1]"
+   Con.StdOut "            [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1] [/processpriority=i|b]"
+   Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1]  [/pp=i|b]"
    Con.StdOut "i.e.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
    Con.StdOut "         DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1"
    Con.StdOut ""
@@ -603,6 +631,8 @@ Sub ShowHelp
    Con.StdOut "       If omitted, only the folder passed via /p is scanned for matching files (equals /s=0)."
    Con.StdOut "/rb or /recyclebin        = delete to recycle bin instead of permanently delete."
    Con.StdOut "       If omitted, defaults to 0 = delete files permanently."
+   Con.StdOut "/pp or /processpriority   = Lower this process' priority in order to consume less (mainly CPU) resources."
+   Con.StdOut "       Valid values are i = Idle (lowest possible priority) or b = Below Normal.
    Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
    Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."
    Con.StdOut ""
@@ -741,97 +771,3 @@ Function CalcVal (ByVal sValue As String) As Quad
 
 End Function
 '---------------------------------------------------------------------------
-
-Function FullPathAndUNC(ByVal sPath As String) As String
-'------------------------------------------------------------------------------
-'Purpose  : Resolves/expands a path from a relative path to an absolute path
-'           and UNC path, if the drive is mapped
-'
-'Prereq.  : -
-'Parameter: -
-'Returns  : -
-'Note     : -
-'
-'   Author: Knuth Konrad 30.01.2017
-'   Source: -
-'  Changed: -
-'------------------------------------------------------------------------------
-
-   ' Determine if it's a relative or absolute path, i.e. .\MyFolder or C:\MyFolder
-   Local szPathFull As AsciiZ * %Max_Path, sPathFull As String, lResult As Long
-   sPathFull = sPath
-   lResult = GetFullPathName(ByCopy sPath, %Max_Path, szPathFull, ByVal 0)
-   If lResult <> 0 Then
-      sPathFull = Left$(szPathFull, lResult)
-   End If
-
-   ' Now that we've got that sorted, resolve the UNC path, if any
-   Local dwError As Dword
-   FullPathAndUNC = UNCPathFromDriveLetter(sPathFull, dwError, 0)
-
-End Function
-'------------------------------------------------------------------------------
-
-Function UNCPathFromDriveLetter(ByVal sPath As String, ByRef dwError As Dword, _
-   Optional ByVal lDriveOnly As Long) As String
-'------------------------------------------------------------------------------
-'Purpose  : Returns a fully qualified UNC path location from a (mapped network)
-'           drive letter/share
-'
-'Prereq.  : -
-'Parameter: sPath       - Path to resolve
-'           dwError     - ByRef(!), Returns the error code from the Win32 API, if any
-'           lDriveOnly  - If True, return only the drive letter
-'Returns  : -
-'Note     : -
-'
-'   Author: Knuth Konrad 17.07.2013
-'   Source: -
-'  Changed: -
-'------------------------------------------------------------------------------
-' 32-bit declarations:
-Local sTemp As String
-Local szDrive As AsciiZ * 3, szRemoteName As AsciiZ * 1024
-Local lSize, lStatus As Long
-
-' The size used for the string buffer. Adjust this if you
-' need a larger buffer.
-Local lBUFFER_SIZE As Long
-lBUFFER_SIZE = 1024
-
-If Len(sPath) > 2 Then
-   sTemp = Mid$(sPath, 3)
-   szDrive = Left$(sPath, 2)
-Else
-   szDrive = sPath
-End If
-
-' Return the UNC path (\\Server\Share).
-lStatus = WNetGetConnectionA(szDrive, szRemoteName, lBUFFER_SIZE)
-
-' Verify that the WNetGetConnection() succeeded. WNetGetConnection()
-' returns 0 (NO_ERROR) if it successfully retrieves the UNC path.
-If lStatus = %NO_ERROR Then
-
-   If IsTrue(lDriveOnly) Then
-
-      ' Display the UNC path.
-      UNCPathFromDriveLetter = Trim$(szRemoteName, Any $Nul & $WhiteSpace)
-
-   Else
-
-      UNCPathFromDriveLetter = Trim$(szRemoteName, Any $Nul & $WhiteSpace) & sTemp
-
-   End If
-
-Else
-
-   ' Return the original filename/path unaltered
-   UNCPathFromDriveLetter = sPath
-
-End If
-
-dwError = lStatus
-
-End Function
-'------------------------------------------------------------------------------
