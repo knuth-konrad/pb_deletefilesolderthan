@@ -24,6 +24,8 @@
 '           - Recompile because of lib changes
 '           18.06.2018
 '           - New parameter: /pp=i|b (ProcessPriority=Idle or Below normal)
+'           20.06.2018
+'           - Exit the current run with <ESC>
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -36,7 +38,7 @@
 #Tools Off
 
 %VERSION_MAJOR = 1
-%VERSION_MINOR = 7
+%VERSION_MINOR = 8
 %VERSION_REVISION = 0
 
 ' Version Resource information
@@ -79,8 +81,10 @@ End Union
 #Include Once "win32api.inc"
 #Include "sautilcc.inc"       ' General console helpers
 '------------------------------------------------------------------------------
-'*** Variabels ***
+'*** Variables ***
 '------------------------------------------------------------------------------
+' User signaled program exit
+Global glUserExit As Long
 '==============================================================================
 
 Function PBMain () As Long
@@ -269,6 +273,13 @@ Function PBMain () As Long
       Con.StdOut "Current date/time : " & oPTNow.DateString & ", " & oPTNow.TimeStringFull
    End If
 
+   Con.StdOut ""
+   Con.StdOut "Press ";
+   Con.Color %INTENSE_WHITE, -1
+   Con.StdOut "<ESC> ";
+   Con.Color %White, -1
+   Con.StdOut " at any time to exit."
+
    StdOut ""
 
    ' Sanity checks of CLI parameters
@@ -313,15 +324,21 @@ Function PBMain () As Long
 
    Local qudFileSizeTotal As Quad   ' Total space free by deleted files
    lResult = DeleteFiles(sPath, sTime, sFilePattern, udtCfg, qudFileSizeTotal)
-   StdOut ""
-   StdOut "Done. " & Format$(lResult) & " file(s) deleted."
+   Con.StdOut ""
+   Con.StdOut "Done. " & Format$(lResult) & " file(s) deleted."
    sTemp = Trim$(GetSizeString(qudFileSizeTotal))
-   StdOut "Disk space freed: " & Format$(qudFileSizeTotal, "0,") & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
+   Con.StdOut "Disk space freed: " & Format$(qudFileSizeTotal, "0,") & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
 
    Trace Off
    Trace Close
 
-   StdOut ""
+   Con.StdOut ""
+
+   If IsTrue(glUserExit) Then
+      Con.Color %Yellow, -1
+      Con.StdOut "Program terminated by user."
+      Con.Color %White, -1
+   End If
 
    PBMain = lResult
 
@@ -350,7 +367,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 '           - Allow deletion to recycle bin (/rb)
 '------------------------------------------------------------------------------
    Local sSourceFile, sPattern, sFile, sFileTime As String
-   Local sMsg, sTemp As String
+   Local sMsg, sTemp, sKeyPress As String
    Local i, lCount As Long
    Local udtDirData As DirData
    Local szSourceFile As WStringZ * %Max_Path
@@ -375,6 +392,12 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
    End Select
 
    For i = 1 To ParseCount(sFilePattern, ";")
+
+      ' Test for program exit
+      If IsTrue(CheckUserExit()) Then
+         glUserExit = %True
+         Exit For
+      End If
 
       Trace Print " -- DeleteFiles sFilePattern: " & Format$(i)
 
@@ -455,6 +478,12 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
             ' Sum up file size
             qudFileSizeTotal = qudFileSizeTotal + qudFileSize
 
+            ' Test for program exit
+            If IsTrue(CheckUserExit()) Then
+               glUserExit = %True
+               Exit Do
+            End If
+
          Loop While FindNextFileW(hSearch, udtWFD)
 
          FindClose hSearch
@@ -480,6 +509,12 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                      lCount = lCount + DeleteFiles(NormalizePath(sPath) & RTrim$(udtWFD.cFileName, $Nul), sTime, sFilePattern, udtCfg, qudFileSizeTotal)
                   End If
 
+               End If
+
+               ' Test for program exit
+               If IsTrue(CheckUserExit()) Then
+                  glUserExit = %True
+                  Exit Do
                End If
 
             Loop While FindNextFileW(hSearch, udtWFD)
@@ -620,6 +655,8 @@ Sub ShowHelp
    Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1]  [/pp=i|b]"
    Con.StdOut "i.e.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
    Con.StdOut "         DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1"
+   Con.StdOut ""
+   Con.StdOut "Pressing <ESC> any time will exit the program."
    Con.StdOut ""
    Con.StdOut "Parameters"
    Con.StdOut "----------"
@@ -771,3 +808,54 @@ Function CalcVal (ByVal sValue As String) As Quad
 
 End Function
 '---------------------------------------------------------------------------
+
+Function CheckUserExit(Optional ByVal vntKeys As Variant) As Long
+'------------------------------------------------------------------------------
+'Purpose  : Check if user pressed ESC and signals program tgermination
+'
+'Prereq.  : -
+'Parameter: lExitFlag   - (ByRef!) Will be set to %True, if program termination was detected.
+'           vntKeys     - One or more keys that should be checked in addition to ESC,
+'                       e.g. "cx" will check both for lower- and uppercase "c" and
+'                       "x" and if detected, signal program termination
+'Returns  : True / False   - ESC was pressed?
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
+   Local sPressed, sTemp As String
+   Local i As Long
+
+   Static sKeys As String
+   Static lBeenHere As Long
+
+   ' Build the string only once
+
+   If IsFalse(lBeenHere) Then
+
+      ' ESC always exits
+      sKeys = $Esc
+
+      If IsFalse(IsMissing(vntKeys)) Then
+
+         ' Add lower and uppercase variant to the string
+         sTemp = Variant$(vntKeys)
+         For i = 1 To Len(sTemp)
+            sKeys &= sKeys & LCase$(Mid$(sTemp, i, 1)) & UCase$(Mid$(sTemp, i, 1))
+         Next i
+
+      End If
+
+      lBeenHere = %True
+
+   End If
+
+   sPressed = Con.InKey$
+
+   ' Any of the termination keys pressed?
+   CheckUserExit = Tally(sPressed, Any sKeys)
+
+End Function
+'------------------------------------------------------------------------------

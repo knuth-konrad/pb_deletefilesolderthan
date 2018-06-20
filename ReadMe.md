@@ -20,6 +20,9 @@ Delete _all_ files in folder `D:\MyTarget` which are older than two days.
 Delete all `*.txt` files in folder `C:\MyTarget\Data` _and all subfolders (`/s`)_ which are older than three weeks.
 
 
+_Pressing_ __&lt;ESC&gt;__ _any time will exit the program execution._
+
+
 ## Parameters
 
 - `/t` or `/time`    
@@ -59,3 +62,8 @@ You may specify more than one file pattern for the parameter `/f` by using ; _(s
     tb = Terabyte, i.e. 100tb
 
 _Please note_: 1 KB = 1024 byte, 1 MB = 1024 KB etc.
+
+
+## Creating a log file
+
+DeleteFilesOlderThan writes all output to STDOUT. So in order to produce a log file of its actions, simply redirect the output to a file via _'> log\_file\_name'_.
