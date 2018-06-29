@@ -55,11 +55,11 @@ You may specify more than one file pattern for the parameter `/f` by using ; _(s
     y = year  i.e. 4y
 
 ### Allowed file size units
-    _none_ = Byte, i.e. 100
-    kb = Kilobyte, i.e. 100kb
-    mb = Megabyte, i.e. 100mb
-    gb = Gigabyte, i.e. 100gb
-    tb = Terabyte, i.e. 100tb
+    none = Byte, e.g. 100
+    kb = Kilobyte, e.g. 100kb
+    mb = Megabyte, e.g. 100mb
+    gb = Gigabyte, e.g. 100gb
+    tb = Terabyte, e.g. 100tb
 
 _Please note_: 1 KB = 1024 byte, 1 MB = 1024 KB etc.
 
