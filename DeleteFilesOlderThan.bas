@@ -39,7 +39,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 0
+%VERSION_REVISION = 1
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -104,6 +104,8 @@ Function PBMain () As Long
 '           30.01.2017
 '           - Resolve absolute and UNC path, if the passed parameter is a relative path
 '           and output the information in the application's intro
+'           20.06.2018
+'           - Expand environment strings included in the path, e.g. %UserProfile%
 '------------------------------------------------------------------------------
    Local sPath, sTime, sFilePattern, sCmd, sTemp As String
    Local i, j As Dword
@@ -116,7 +118,7 @@ Function PBMain () As Long
 
    ' Application intro
    ConHeadline "DeleteFilesOlderThan", %VERSION_MAJOR, %VERSION_MINOR, %VERSION_REVISION
-   ConCopyright "2013-2017", $COMPANY_NAME
+   ConCopyright "2013-2018", $COMPANY_NAME
    Print ""
 
    Trace New ".\DeleteFilesOlderThan.tra"
@@ -236,6 +238,9 @@ Function PBMain () As Long
       sFilePattern = "*.*"
    End If
 
+   ' Expand environment variables in path
+   sPath = GetEnvironPath(sPath)
+
    ' Determine if it's a relative or absolute path, i.e. .\MyFolder or C:\MyFolder and/or a UNC share
    Local sPathFull As String
    sPathFull = sPath
@@ -294,7 +299,7 @@ Function PBMain () As Long
 
    If Not IsFolder(sPath) Then
       Con.Color %LITE_RED, -1
-      Print "Folder doesn't exist:" & sPath
+      Print "Folder doesn't exist: " & sPath
       Con.Color %White, -1
       Print ""
       ShowHelp
@@ -328,6 +333,12 @@ Function PBMain () As Long
    Con.StdOut "Done. " & Format$(lResult) & " file(s) deleted."
    sTemp = Trim$(GetSizeString(qudFileSizeTotal))
    Con.StdOut "Disk space freed: " & Format$(qudFileSizeTotal, "0,") & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
+
+   If IsTrue(udtCfg.Verbose) Then
+      Call oPTNow.Now()
+      Con.StdOut ""
+      Con.StdOut "Current date/time : " & oPTNow.DateString & ", " & oPTNow.TimeStringFull
+   End If
 
    Trace Off
    Trace Close
@@ -856,6 +867,34 @@ Function CheckUserExit(Optional ByVal vntKeys As Variant) As Long
 
    ' Any of the termination keys pressed?
    CheckUserExit = Tally(sPressed, Any sKeys)
+
+End Function
+'------------------------------------------------------------------------------
+
+Function GetEnvironPath(ByVal sPath As String) As String
+'------------------------------------------------------------------------------
+'Purpose  : Use Win API ExpandEnvironmentStrings to resolve variables in pased folder
+'
+'Prereq.  : -
+'Parameter: sPath - Folder passed via CLI parameter /p
+'Returns  : String with replaced environemnt variable
+'Note     : -
+'
+'   Author: Knuth Konrad
+'   Source: -
+'  Changed: -
+'------------------------------------------------------------------------------
+   Local szIn, szOut As AsciiZ * %Max_Path
+   Dim lRet As Long
+
+   szIn = sPath
+   lRet = ExpandEnvironmentStringsA(szIn, szOut, SizeOf(szOut))
+
+   If lRet > 0 Then
+      GetEnvironPath = Left$(szOut, lRet)
+   Else
+      GetEnvironPath = sPath
+   End If
 
 End Function
 '------------------------------------------------------------------------------
