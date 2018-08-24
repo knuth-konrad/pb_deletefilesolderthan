@@ -39,7 +39,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 1
+%VERSION_REVISION = 2
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -376,6 +376,8 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 '           Sum up size of files that were deleted
 '           10.03.2017
 '           - Allow deletion to recycle bin (/rb)
+'           24.08.2018
+'           - Display the " - Skipping ..." message only with verbose output enabled (/v)
 '------------------------------------------------------------------------------
    Local sSourceFile, sPattern, sFile, sFileTime As String
    Local sMsg, sTemp, sKeyPress As String
@@ -476,11 +478,13 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 
                Else
 
-                  sMsg = "  - Skipping "
-                  Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
                   If IsTrue(udtCfg.Verbose) Then
-                     Con.StdOut "    Time stamp: " & sFileTime
-                  End If
+                     sMsg = "  - Skipping "
+                     Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
+                     If IsTrue(udtCfg.Verbose) Then
+                        Con.StdOut "    Time stamp: " & sFileTime
+                     End If
+                  End If   '// If IsTrue(udtCfg.Verbose)
 
                End If
 
