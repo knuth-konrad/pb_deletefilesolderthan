@@ -26,6 +26,8 @@
 '           - New parameter: /pp=i|b (ProcessPriority=Idle or Below normal)
 '           20.06.2018
 '           - Exit the current run with <ESC>
+'           04.12.2018
+'           - Format numbers with proper locale
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -39,7 +41,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 2
+%VERSION_REVISION = 3
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -332,7 +334,8 @@ Function PBMain () As Long
    Con.StdOut ""
    Con.StdOut "Done. " & Format$(lResult) & " file(s) deleted."
    sTemp = Trim$(GetSizeString(qudFileSizeTotal))
-   Con.StdOut "Disk space freed: " & Format$(qudFileSizeTotal, "0,") & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
+   'Con.StdOut "Disk space freed: " & Format$(qudFileSizeTotal, "0,") & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
+   Con.StdOut "Disk space freed: " & FormatNumberEx(qudFileSizeTotal, %True) & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
 
    If IsTrue(udtCfg.Verbose) Then
       Call oPTNow.Now()
@@ -462,7 +465,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                         Call Delete2RecycleBin(NormalizePath(sPath) & sFile)
                      End If
                      If IsTrue(udtCfg.Verbose) Then
-                        Con.StdOut " - File size: " & Format$(qudFileSize, "0,") & " bytes"
+                        Con.StdOut " - File size: " & FormatNumberEx(qudFileSize, %True) & " bytes"
                      End If
 
                   Catch
