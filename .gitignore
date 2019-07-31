@@ -10,12 +10,13 @@ DATA 1/
 [Bb]ackup.*
 *.log
 *.tra
-SizeTest.*
+*.bak
 
 # Other tools
 OpenFile.*
 
 # Misc. (binary) files
-*.txt
+1.txt
 dfot.cmd
 dfot1.cmd
+*.zip
