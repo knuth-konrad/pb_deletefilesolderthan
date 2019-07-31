@@ -11,7 +11,7 @@ _DeleteFilesOlderThan deletes files matching the passed file pattern and which a
 
 `DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1] [/pp=i|b]`
 
-i.e. 
+e.g.
 
 - `DeleteFilesOlderThan /time=2d /path=D:\MyTarget`    
 Delete _all_ files in folder `D:\MyTarget` which are older than two days.
@@ -44,15 +44,15 @@ Only delete files _greater_ than the specified file size _(see below how to pass
 
 Please note that you may only use __either__ `/fst` __or__ `/fgt`. You can't use both parameters. If you happen to pass both parameters, the last one 'wins'.
 
-You may specify more than one file pattern for the parameter `/f` by using ; _(semicolon)_ as a separator, i.e.    
+You may specify more than one file pattern for the parameter `/f` by using ; _(semicolon)_ as a separator, e.g.    
 `/f=*.doc;*.rtf` = deletes all `*.doc` and all `*.rtf` files from the specified folder.    
 `/f=Backup*.bak;Log*.trn` = deletes all `Backup*.bak` and all `Log*.trn` files from the specified folder.
 
 ### Allowed time specification units for parameter /t are
-    d = day   i.e. 1d
-    w = week  i.e. 2w
-    m = month i.e. 3m
-    y = year  i.e. 4y
+    d = day   e.g. 1d
+    w = week  e.g. 2w
+    m = month e.g. 3m
+    y = year  e.g. 4y
 
 ### Allowed file size units
     none = Byte, e.g. 100
