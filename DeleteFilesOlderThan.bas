@@ -15,7 +15,7 @@
 '           10.03.2017
 '           - Allow deletion to recycle bin (/rb)
 '           04.05.2017
-'           - #Break on to prevent console context menu changes
+'           - #Break On to prevent console context menu changes
 '           10.05.2017
 '           - Switch from source code to SLL include
 '           15.05.2017
@@ -41,7 +41,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 3
+%VERSION_REVISION = 4
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -66,6 +66,8 @@ Type ParamsTYPE
    FileSize As Quad
    RecycleBin As Byte
    ProcessPriority As String * 1
+   DirsOnly As Byte
+   DirsAndFiles As Byte
 End Type
 
 Type FileSizeTYPE
@@ -151,12 +153,15 @@ Function PBMain () As Long
    ' /t= or /time=
    ' /p= or /path=
    ' /f= or /filepattern=
-   ' /s= or /subfolders=
-   ' /v= or /verbose
+   ' /s or /subfolders
+   ' /v or /verbose
    ' /fst or /filesmallerthan
    ' /fgt or /filesgreaterthan
    ' /rb or /recyclebin
    ' /pp or /processpriority
+   ' /ddo or /deldirsonly
+   ' /dea or /delall
+
    i = o.ValuesCount
 
    If (i < 2) Or (i > 7) Then
@@ -198,6 +203,18 @@ Function PBMain () As Long
       vntResult = o.GetValueByName("rb", "recyclebin")
       'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
       udtCfg.RecycleBin = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+   ' Delete (empty) dirs only
+   If IsTrue(o.HasParam("ddo", "deldirsonly")) Then
+      vntResult = o.GetValueByName("ddo", "deldirsonly")
+      udtCfg.DirsOnly = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+   ' Delete files and directories
+   If IsTrue(o.HasParam("dea", "delall")) Then
+      vntResult = o.GetValueByName("dea", "delall")
+      udtCfg.DirsAndFiles = Sgn(Abs(VariantVT(Variant$(vntResult))))
    End If
 
    ' ** Set process priority to 'idle' (IDLE_PRIORITY_CLASS) or
@@ -249,35 +266,38 @@ Function PBMain () As Long
    sPathFull = FullPathAndUNC(sPath)
 
    ' Echo the CLI parameters
-   Con.StdOut "Time              : " & sTime
-   Con.StdOut "Folder            : " & sPath;
+   Con.StdOut "Time               : " & sTime
+   Con.StdOut "Folder             : " & sPath;
    ' If path is a relative path, display the full path also
    If LCase$(NormalizePath(sPath)) = LCase$(NormalizePath(sPathFull)) Then
       Con.StdOut ""
    Else
       Con.StdOut " (" & sPathFull & ")"
    End If
-   Con.StdOut "File pattern      : " & sFilePattern
-   Con.StdOut "Recurse subfolders: " & IIf$(IsTrue(udtCfg.Subfolders), "True", "False")
-   Con.StdOut "Verbose           : " & IIf$(IsTrue(udtCfg.Verbose), "True", "False")
-   Con.StdOut "Delete to Rec. Bin: " & IIf$(IsTrue(udtCfg.RecycleBin), "True", "False")
+   Con.StdOut "File pattern       : " & sFilePattern
+   Con.StdOut "Recurse subfolders : " & IIf$(IsTrue(udtCfg.Subfolders), "True", "False")
+   Con.StdOut "Verbose            : " & IIf$(IsTrue(udtCfg.Verbose), "True", "False")
+   Con.StdOut "Delete to Rec. Bin : " & IIf$(IsTrue(udtCfg.RecycleBin), "True", "False")
+   Con.StdOut "Del. only dirs     : " & IIf$(IsTrue(udtCfg.DirsOnly), "True", "False")
+   Con.StdOut "Del. files and dirs: " & IIf$(IsTrue(udtCfg.DirsAndFiles), "True", "False")
+
    Local sPP As String
    sPP = udtCfg.ProcessPriority
-   Con.StdOut "Process priority  : " & Switch$(sPP = "i", "Idle", sPP = "b", "Below normal", sPP = "n", "Normal")
+   Con.StdOut "Process priority   : " & Switch$(sPP = "i", "Idle", sPP = "b", "Below normal", sPP = "n", "Normal")
    ' File size?
    If udtCfg.CompareFlag <> 0 Then
       Select Case udtCfg.CompareFlag
       Case < 0
-         Con.StdOut "Files smaller than: " & sTemp & " (" & Format$(udtCfg.FileSize, "#0,") & " bytes)
+         Con.StdOut "Files smaller than : " & sTemp & " (" & Format$(udtCfg.FileSize, "#0,") & " bytes)
       Case > 0
-         Con.StdOut "Files greater than: " & sTemp & " (" & Format$(udtCfg.FileSize, "#0,") & " bytes)
+         Con.StdOut "Files greater than : " & sTemp & " (" & Format$(udtCfg.FileSize, "#0,") & " bytes)
       End Select
 
    End If
 
    If IsTrue(udtCfg.Verbose) Then
       Call oPTNow.Now()
-      Con.StdOut "Current date/time : " & oPTNow.DateString & ", " & oPTNow.TimeStringFull
+      Con.StdOut "Current date/time  : " & oPTNow.DateString & ", " & oPTNow.TimeStringFull
    End If
 
    Con.StdOut ""
@@ -327,15 +347,29 @@ Function PBMain () As Long
       Exit Function
    End If
 
+   ' Can't use /ddo and /dea together
+   If IsTrue(udtCfg.DirsOnly) And IsTrue(udtCfg.DirsAndFiles) Then
+      Con.Color %LITE_RED, -1
+      Print "Parameters /ddo and /dea can't be used together."
+      Con.Color %White, -1
+      Print ""
+      ShowHelp
+      Exit Function
+   End If
+
    Trace On
 
    Local qudFileSizeTotal As Quad   ' Total space free by deleted files
-   lResult = DeleteFiles(sPath, sTime, sFilePattern, udtCfg, qudFileSizeTotal)
+   Local qudFolders As Quad         ' # of folders processed
+   lResult = DeleteFiles(sPath, sTime, sFilePattern, udtCfg, qudFileSizeTotal, qudFolders)
    Con.StdOut ""
-   Con.StdOut "Done. " & Format$(lResult) & " file(s) deleted."
+   Con.StdOut "Done."
+   Con.StdOut ""
+   Con.StdOut "File(s) deleted    : " & Format$(lResult)
+   Con.StdOut "Folder(s) processed: " & Format$(qudFolders)
+
    sTemp = Trim$(GetSizeString(qudFileSizeTotal))
-   'Con.StdOut "Disk space freed: " & Format$(qudFileSizeTotal, "0,") & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
-   Con.StdOut "Disk space freed: " & FormatNumberEx(qudFileSizeTotal, %True) & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
+   Con.StdOut "Disk space freed   : " & FormatNumberEx(qudFileSizeTotal, %True) & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
 
    If IsTrue(udtCfg.Verbose) Then
       Call oPTNow.Now()
@@ -360,14 +394,19 @@ End Function
 '---------------------------------------------------------------------------
 
 Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePattern As String, ByVal udtCfg As ParamsTYPE, _
-   ByRef qudFileSizeTotal As Quad) As Long
+   ByRef qudFileSizeTotal As Quad, ByRef qudFolders As Quad) As Long
 '------------------------------------------------------------------------------
 'Purpose  : Recursivly scan folders for the file patterns passed and delete files
 '           older than sTime
 '
 'Prereq.  : -
-'Parameter: -
-'Returns  : -
+'Parameter: sPath             - Root path for file search
+'           sTime             - Time value as passed via parameter. e.g. "2y"
+'           sFilePattern      - Files to delete
+'           udtCfg            - (Further) configuration
+'           qudFileSizeTotal  - (ByRef!) File size in bytes of files that have been deleted
+'           qudFolders        - (ByRef!) # of folders processed
+'Returns  : The # of deleted files
 'Note     : -
 '
 '   Author: Knuth Konrad
@@ -434,6 +473,9 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 
       hSearch = FindFirstFileW(szSourceFile, udtWFD)  ' Get search handle, if success
       If hSearch <> %INVALID_HANDLE_VALUE Then        ' Loop through directory for files
+
+         ' At least the starting folder exists
+         Incr qudFolders
 
          Do
 
@@ -524,7 +566,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                   And (udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_HIDDEN) = 0 Then  ' If dirs, but not hidden..
 
                   If udtWFD.cFileName <> "." And udtWFD.cFileName <> ".." Then          ' Not these..
-                     lCount = lCount + DeleteFiles(NormalizePath(sPath) & RTrim$(udtWFD.cFileName, $Nul), sTime, sFilePattern, udtCfg, qudFileSizeTotal)
+                     lCount = lCount + DeleteFiles(NormalizePath(sPath) & RTrim$(udtWFD.cFileName, $Nul), sTime, sFilePattern, udtCfg, qudFileSizeTotal, qudFolders)
                   End If
 
                End If
@@ -670,6 +712,7 @@ Sub ShowHelp
    Con.StdOut "Usage:   DeleteFilesOlderThan _"
    Con.StdOut "            /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] _"
    Con.StdOut "            [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1] [/processpriority=i|b]"
+   Con.StdOut "            [/deldirsonly|/delall]"
    Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1]  [/pp=i|b]"
    Con.StdOut "i.e.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
    Con.StdOut "         DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1"
@@ -678,20 +721,28 @@ Sub ShowHelp
    Con.StdOut ""
    Con.StdOut "Parameters"
    Con.StdOut "----------"
-   Con.StdOut "/t or /time               = time specification"
-   Con.StdOut "/p or /path               = (start) folder"
-   Con.StdOut "/f or /filepattern        = file pattern"
-   Con.StdOut "       If omitted, all files are scanned (equals /f=*.*)."
-   Con.StdOut "/s or /subfolders         = recurse subfolders yes(1) or no (0)"
-   Con.StdOut "       If omitted, only the folder passed via /p is scanned for matching files (equals /s=0)."
-   Con.StdOut "/rb or /recyclebin        = delete to recycle bin instead of permanently delete."
-   Con.StdOut "       If omitted, defaults to 0 = delete files permanently."
-   Con.StdOut "/pp or /processpriority   = Lower this process' priority in order to consume less (mainly CPU) resources."
-   Con.StdOut "       Valid values are i = Idle (lowest possible priority) or b = Below Normal.
+   Con.StdOut "/t or   /time             = time specification"
+   Con.StdOut "/p or   /path             = (start) folder"
+   Con.StdOut "/f or   /filepattern      = file pattern"
+   Con.StdOut "         If omitted, all files are scanned (equals /f=*.*)."
+   Con.StdOut "/s or   /subfolders       = recurse subfolders yes(1) or no (0)"
+   Con.StdOut "         If omitted, only the folder passed via /p is scanned for matching files (equals /s=0)."
+   Con.StdOut "/rb or  /recyclebin       = delete to recycle bin instead of permanently delete."
+   Con.StdOut "         If omitted, defaults to 0 = delete files permanently."
+   Con.StdOut "/pp or  /processpriority  = Lower this process' priority in order to consume less (mainly CPU) resources."
+   Con.StdOut "         Valid values are i = Idle (lowest possible priority) or b = Below Normal.
    Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
    Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."
    Con.StdOut ""
    Con.StdOut "Please note that you may only use *either* /fst or /fgt. You can't use both parameters. If you happen to pass both parameters, the last one 'wins'."
+   Con.StdOut ""
+   Con.StdOut "/ddo or /deldirsonly      = delete (empty) directories only."
+   Con.StdOut "/dea or /delall           = delete directories and files."
+   Con.StdOut ""
+   Con.StdOut "Both options (/ddo, /dea) utilize the provided file pattern (/f). Suppose the file pattern being /f=tmp*.tm?, then:"
+   Con.StdOut "/ddo won't delete ANY files at all. And it will only delete empty directories matching the pattern."
+   Con.StdOut "/dea will delete all files matching the pattern. And all directories matching it, with *everything* in it. The file pattern doesn't apply to those.
+   Con.StdOut "/ddo and /dea can't be used together."
    Con.StdOut ""
    Con.StdOut "You may specify more than one file pattern for the parameter /f by using ; (semicolon) as a separator, i.e."
    Con.StdOut "       /f=*.doc;*.rtf -> deletes all *.doc and all *.rtf files from the specified folder."
