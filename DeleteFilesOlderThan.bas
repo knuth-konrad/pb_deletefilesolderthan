@@ -41,7 +41,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 4
+%VERSION_REVISION = 5
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -110,6 +110,9 @@ Function PBMain () As Long
 '           and output the information in the application's intro
 '           20.06.2018
 '           - Expand environment strings included in the path, e.g. %UserProfile%
+'           08.11.2019
+'           - Use Con.StdOut "..." instead of Print "..." for error messages so that
+'           they're also captured if STDOUT is redireted to a file.
 '------------------------------------------------------------------------------
    Local sPath, sTime, sFilePattern, sCmd, sTemp As String
    Local i, j As Dword
@@ -312,27 +315,27 @@ Function PBMain () As Long
    ' Sanity checks of CLI parameters
    If Len(Trim$(sPath)) < 2 Then
       Con.Color %LITE_RED, -1
-      Print "Missing folder."
+      Con.StdOut "Missing folder."
       Con.Color %White, -1
-      Print ""
+      Con.StdOut ""
       ShowHelp
       Exit Function
    End If
 
    If Not IsFolder(sPath) Then
       Con.Color %LITE_RED, -1
-      Print "Folder doesn't exist: " & sPath
+      Con.StdOut "Folder doesn't exist: " & sPath
       Con.Color %White, -1
-      Print ""
+      Con.StdOut ""
       ShowHelp
       Exit Function
    End If
 
    If Len(Trim$(sTime)) < 1 Then
       Con.Color %LITE_RED, -1
-      Print "Missing time."
+      Con.StdOut "Missing time."
       Con.Color %White, -1
-      Print ""
+      Con.StdOut ""
       ShowHelp
       Exit Function
    End If
@@ -340,9 +343,9 @@ Function PBMain () As Long
    ' Ensure a time unit is given
    If Tally(Right$(LCase$(Trim$(sTime)), 1), Any "dmwy") < 1 Then
       Con.Color %LITE_RED, -1
-      Print "Missing/invalid time unit: " & Right$(LCase$(Trim$(sTime)), 1) & ". Valid units are d, w, m, y."
+      Con.StdOut "Missing/invalid time unit: " & Right$(LCase$(Trim$(sTime)), 1) & ". Valid units are d, w, m, y."
       Con.Color %White, -1
-      Print ""
+      Con.StdOut ""
       ShowHelp
       Exit Function
    End If
@@ -350,9 +353,9 @@ Function PBMain () As Long
    ' Can't use /ddo and /dea together
    If IsTrue(udtCfg.DirsOnly) And IsTrue(udtCfg.DirsAndFiles) Then
       Con.Color %LITE_RED, -1
-      Print "Parameters /ddo and /dea can't be used together."
+      Con.StdOut "Parameters /ddo and /dea can't be used together."
       Con.Color %White, -1
-      Print ""
+      Con.StdOut ""
       ShowHelp
       Exit Function
    End If
