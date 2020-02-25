@@ -125,7 +125,7 @@ Function PBMain () As Long
 
    ' Application intro
    ConHeadline "DeleteFilesOlderThan", %VERSION_MAJOR, %VERSION_MINOR, %VERSION_REVISION
-   ConCopyright "2013-2018", $COMPANY_NAME
+   ConCopyright "2013-2020", $COMPANY_NAME
    Print ""
 
    Trace New ".\DeleteFilesOlderThan.tra"
@@ -353,7 +353,7 @@ Function PBMain () As Long
    ' Can't use /ddo and /dea together
    If IsTrue(udtCfg.DirsOnly) And IsTrue(udtCfg.DirsAndFiles) Then
       Con.Color %LITE_RED, -1
-      Con.StdOut "Parameters /ddo and /dea can't be used together."
+      Con.StdOut "Parameters /ddo and /dea are mutually exclusive."
       Con.Color %White, -1
       Con.StdOut ""
       ShowHelp
@@ -556,7 +556,7 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
       Con.StdOut ""
 
 
-      If IsTrue(udtCfg.Subfolders) Then  'if to search in subdirectories.
+      If IsTrue(udtCfg.Subfolders) Then  ' if to search in subdirectories.
 
          szSourceFile = NormalizePath(sPath) & "*"
          hSearch = FindFirstFileW(szSourceFile, udtWFD)
