@@ -41,7 +41,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 6
+%VERSION_REVISION = 7
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -68,6 +68,7 @@ Type ParamsTYPE
    ProcessPriority As String * 1
    DirsOnly As Byte
    DirsAndFiles As Byte
+   ReadOnly As Byte
 End Type
 
 Type FileSizeTYPE
@@ -113,6 +114,8 @@ Function PBMain () As Long
 '           08.11.2019
 '           - Use Con.StdOut "..." instead of Print "..." for error messages so that
 '           they're also captured if STDOUT is redireted to a file.
+'           22.02.2012
+'           - New parameter /r (/readonly): force deletion of reaonly files
 '------------------------------------------------------------------------------
    Local sPath, sTime, sFilePattern, sCmd, sTemp As String
    Local i, j As Dword
@@ -125,7 +128,7 @@ Function PBMain () As Long
 
    ' Application intro
    ConHeadline "DeleteFilesOlderThan", %VERSION_MAJOR, %VERSION_MINOR, %VERSION_REVISION
-   ConCopyright "2013-2020", $COMPANY_NAME
+   ConCopyright "2013-2021", $COMPANY_NAME
    Print ""
 
    Trace New ".\DeleteFilesOlderThan.tra"
@@ -158,6 +161,7 @@ Function PBMain () As Long
    ' /f= or /filepattern=
    ' /s or /subfolders
    ' /v or /verbose
+   ' /r or /readonly
    ' /fst or /filesmallerthan
    ' /fgt or /filesgreaterthan
    ' /rb or /recyclebin
@@ -167,7 +171,7 @@ Function PBMain () As Long
 
    i = o.ValuesCount
 
-   If (i < 2) Or (i > 7) Then
+   If (i < 2) Or (i > 8) Then
       Print "Invalid number of parameters."
       Print ""
       ShowHelp
@@ -206,6 +210,13 @@ Function PBMain () As Long
       vntResult = o.GetValueByName("rb", "recyclebin")
       'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
       udtCfg.RecycleBin = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+   ' Delete readonly files
+   If IsTrue(o.HasParam("r", "readonly")) Then
+      vntResult = o.GetValueByName("r", "readonly")
+      'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
+      udtCfg.ReadOnly = Sgn(Abs(VariantVT(Variant$(vntResult))))
    End If
 
    ' Delete (empty) dirs only
@@ -280,6 +291,7 @@ Function PBMain () As Long
    Con.StdOut "File pattern       : " & sFilePattern
    Con.StdOut "Recurse subfolders : " & IIf$(IsTrue(udtCfg.Subfolders), "True", "False")
    Con.StdOut "Verbose            : " & IIf$(IsTrue(udtCfg.Verbose), "True", "False")
+   Con.StdOut "Delete readonly    : " & IIf$(IsTrue(udtCfg.ReadOnly), "True", "False")
    Con.StdOut "Delete to Rec. Bin : " & IIf$(IsTrue(udtCfg.RecycleBin), "True", "False")
    Con.StdOut "Del. only dirs     : " & IIf$(IsTrue(udtCfg.DirsOnly), "True", "False")
    Con.StdOut "Del. files and dirs: " & IIf$(IsTrue(udtCfg.DirsAndFiles), "True", "False")
@@ -423,6 +435,8 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 '           - Allow deletion to recycle bin (/rb)
 '           24.08.2018
 '           - Display the " - Skipping ..." message only with verbose output enabled (/v)
+'           22.02.2012
+'           - Enable deletion of readonly files (/r)
 '------------------------------------------------------------------------------
    Local sSourceFile, sPattern, sFile, sFileTime As String
    Local sMsg, sTemp, sKeyPress As String
@@ -514,21 +528,53 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                      End If
 
                   Catch
-                     Con.Color 12, -1
-                     sMsg = "  - ERROR: can't delete "
-                     Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
-                     If IsTrue(udtCfg.Verbose) Then
-                        Con.StdOut ""
+                     ' Delete readonly files, if this caused the error ("Permission denied")
+
+                     Trace Print " -- Err          : " & Format$(Err)
+                     Trace Print " -- Cfg.ReadOnly : " & Format$(udtCfg.ReadOnly)
+                     Trace Print " -- File attr.   : " & Format$(udtWFD.dwFileAttributes)
+                     Trace Print " -- File attr AND: " & Format$(udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_READONLY)
+                     Trace Print " -- File attr  OR: " & Format$(udtWFD.dwFileAttributes Or %FILE_ATTRIBUTE_READONLY)
+
+                     If (Err = 70) And (IsTrue(udtCfg.ReadOnly)) And (udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_READONLY) Then
+                        SetAttr NormalizePath(sPath) & sFile, (udtWFD.dwFileAttributes - %FILE_ATTRIBUTE_READONLY)
+                        ErrClear
+                        Try
+                           If IsFalse(udtCfg.RecycleBin) Then
+                              Kill NormalizePath(sPath) & sFile
+                           Else
+                              Call Delete2RecycleBin(NormalizePath(sPath) & sFile)
+                           End If
+                        Catch
+                           Con.Color 12, -1
+                           sMsg = "  - ERROR: can't delete "
+                           Con.StdOut sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg))) & " - " & Error$(Err)
+                           If IsTrue(udtCfg.Verbose) Then
+                              Con.StdOut ""
+                           End If
+                           Con.Color 7, -1
+                           Decr lCount
+                        End Try
+
+                     Else
+
+                        Con.Color 12, -1
+                        sMsg = "  - ERROR: can't delete "
+                        Con.StdOut sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg))) & " - " & Error$(Err)
+                        If IsTrue(udtCfg.Verbose) Then
+                           Con.StdOut ""
+                        End If
+                        Con.Color 7, -1
+                        Decr lCount
                      End If
-                     Con.Color 7, -1
-                     Decr lCount
+
                   End Try
 
                Else
 
                   If IsTrue(udtCfg.Verbose) Then
                      sMsg = "  - Skipping "
-                     Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
+                     Con.StdOut sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
                      If IsTrue(udtCfg.Verbose) Then
                         Con.StdOut "    Time stamp: " & sFileTime
                      End If
