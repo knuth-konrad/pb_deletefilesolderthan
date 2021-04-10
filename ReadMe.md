@@ -1,28 +1,27 @@
 # DeleteFilesOlderThan
 
-_DeleteFilesOlderThan deletes files matching the passed file pattern and which are older than the given time specification from a folder_
+DeleteFilesOlderThan deletes files matching the passed file pattern and which are older than the given time specification from a folder.
 
 ---
 
 ## Usage
 
-`DeleteFilesOlderThan /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1] [/readonly=0|1] [/processpriority=i|b]`
+`DeleteFilesOlderThan /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1] [/readonly=0|1] [/processpriority=i|b] [/hideconsole=0|1]`
 
    or  
 
-`DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1] [/r=0|1] [/pp=i|b]`
+`DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1] [/r=0|1] [/pp=i|b] [/hc=0|1]`
 
 e.g.
 
-- `DeleteFilesOlderThan /time=2d /path=D:\MyTarget`    
+- `DeleteFilesOlderThan /time=2d /path=D:\MyTarget`  
 Delete _all_ files in folder `D:\MyTarget` which are older than two days.
 
-- `DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1`    
+- `DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1`  
 Delete all `*.txt` files in folder `C:\MyTarget\Data` _and all subfolders (`/s`)_ which are older than three weeks.
 
 
 _Pressing_ __&lt;ESC&gt;__ _any time will exit the program execution._
-
 
 ## Parameters
 
@@ -40,6 +39,8 @@ Delete to recycle bin instead of permanently delete. If omitted, defaults to 0 =
 Delete readonly files? If omitted, defaults to 0 = don't delete readonly files.
 - `/pp` or `/processpriority`  
 Set this process' priority to _Idle_ ('i' = lowest possible) or _Below normal_ ('b') in order to consume less _(mainly CPU)_ resources.
+- `/hc` or `/hideconsole`  
+Hide the application's (console) window? Yes(1) or no(0). Defaults to no.
 - `/fst` or `/filessmallerthan`  
 Only delete files _smaller_ than the specified file size _(see below how to pass file sizes)_.
 - `/fgt` or `/filesgreaterthan`  

@@ -28,6 +28,8 @@
 '           - Exit the current run with <ESC>
 '           04.12.2018
 '           - Format numbers with proper locale
+'           10-04-2021
+'           - New parameter: hc/hideconsole
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -41,7 +43,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 7
+%VERSION_REVISION = 9
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -69,6 +71,7 @@ Type ParamsTYPE
    DirsOnly As Byte
    DirsAndFiles As Byte
    ReadOnly As Byte
+   HideConsole As Byte
 End Type
 
 Type FileSizeTYPE
@@ -266,6 +269,14 @@ Function PBMain () As Long
       udtCfg.CompareFlag = 1
    End If
 
+   ' ** Hide console window
+   If IsTrue(o.HasParam("hc", "hideconsole")) Then
+      vntResult = o.GetValueByName("hc", "hideconsole")
+      'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
+      udtCfg.HideConsole = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+
    ' ** Defaults
    If Len(Trim$(sFilePattern)) < 2 Then
       sFilePattern = "*.*"
@@ -278,6 +289,11 @@ Function PBMain () As Long
    Local sPathFull As String
    sPathFull = sPath
    sPathFull = FullPathAndUNC(sPath)
+
+   ' Hide the console window?
+   If IsTrue(udtCfg.HideConsole) Then
+      Call ShowWindow(Con.Handle, %SW_Hide)
+   End If
 
    ' Echo the CLI parameters
    Con.StdOut "Time               : " & sTime
@@ -763,7 +779,7 @@ Sub ShowHelp
    Con.StdOut "            [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1] [/processpriority=i|b]"
    Con.StdOut "            [/deldirsonly|/delall]"
    Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1]  [/pp=i|b]"
-   Con.StdOut "i.e.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
+   Con.StdOut "e.g.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
    Con.StdOut "         DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1"
    Con.StdOut ""
    Con.StdOut "Pressing <ESC> any time will exit the program."
@@ -779,6 +795,8 @@ Sub ShowHelp
    Con.StdOut "/rb or  /recyclebin       = delete to recycle bin instead of permanently delete."
    Con.StdOut "         If omitted, defaults to 0 = delete files permanently."
    Con.StdOut "/pp or  /processpriority  = Lower this process' priority in order to consume less (mainly CPU) resources."
+   Con.StdOut "         Valid values are i = Idle (lowest possible priority) or b = Below Normal.
+   Con.StdOut "/hc or  /hideconsole      = Hide the application's (console) window? Yes(1) or no(0). Defaults to no."
    Con.StdOut "         Valid values are i = Idle (lowest possible priority) or b = Below Normal.
    Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
    Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."
