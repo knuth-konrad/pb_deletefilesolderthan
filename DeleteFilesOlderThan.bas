@@ -28,6 +28,8 @@
 '           - Exit the current run with <ESC>
 '           04.12.2018
 '           - Format numbers with proper locale
+'           10-04-2021
+'           - New parameter: hc/hideconsole
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -41,7 +43,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 5
+%VERSION_REVISION = 9
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -68,6 +70,8 @@ Type ParamsTYPE
    ProcessPriority As String * 1
    DirsOnly As Byte
    DirsAndFiles As Byte
+   ReadOnly As Byte
+   HideConsole As Byte
 End Type
 
 Type FileSizeTYPE
@@ -113,6 +117,8 @@ Function PBMain () As Long
 '           08.11.2019
 '           - Use Con.StdOut "..." instead of Print "..." for error messages so that
 '           they're also captured if STDOUT is redireted to a file.
+'           22.02.2012
+'           - New parameter /r (/readonly): force deletion of reaonly files
 '------------------------------------------------------------------------------
    Local sPath, sTime, sFilePattern, sCmd, sTemp As String
    Local i, j As Dword
@@ -125,7 +131,7 @@ Function PBMain () As Long
 
    ' Application intro
    ConHeadline "DeleteFilesOlderThan", %VERSION_MAJOR, %VERSION_MINOR, %VERSION_REVISION
-   ConCopyright "2013-2020", $COMPANY_NAME
+   ConCopyright "2013-2021", $COMPANY_NAME
    Print ""
 
    Trace New ".\DeleteFilesOlderThan.tra"
@@ -158,6 +164,7 @@ Function PBMain () As Long
    ' /f= or /filepattern=
    ' /s or /subfolders
    ' /v or /verbose
+   ' /r or /readonly
    ' /fst or /filesmallerthan
    ' /fgt or /filesgreaterthan
    ' /rb or /recyclebin
@@ -167,7 +174,7 @@ Function PBMain () As Long
 
    i = o.ValuesCount
 
-   If (i < 2) Or (i > 7) Then
+   If (i < 2) Or (i > 8) Then
       Print "Invalid number of parameters."
       Print ""
       ShowHelp
@@ -206,6 +213,13 @@ Function PBMain () As Long
       vntResult = o.GetValueByName("rb", "recyclebin")
       'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
       udtCfg.RecycleBin = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+   ' Delete readonly files
+   If IsTrue(o.HasParam("r", "readonly")) Then
+      vntResult = o.GetValueByName("r", "readonly")
+      'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
+      udtCfg.ReadOnly = Sgn(Abs(VariantVT(Variant$(vntResult))))
    End If
 
    ' Delete (empty) dirs only
@@ -255,6 +269,14 @@ Function PBMain () As Long
       udtCfg.CompareFlag = 1
    End If
 
+   ' ** Hide console window
+   If IsTrue(o.HasParam("hc", "hideconsole")) Then
+      vntResult = o.GetValueByName("hc", "hideconsole")
+      'udtCfg.RecycleBin = Sgn(Abs(Val(Variant$(vntResult))))
+      udtCfg.HideConsole = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+
    ' ** Defaults
    If Len(Trim$(sFilePattern)) < 2 Then
       sFilePattern = "*.*"
@@ -268,6 +290,11 @@ Function PBMain () As Long
    sPathFull = sPath
    sPathFull = FullPathAndUNC(sPath)
 
+   ' Hide the console window?
+   If IsTrue(udtCfg.HideConsole) Then
+      Call ShowWindow(Con.Handle, %SW_Hide)
+   End If
+
    ' Echo the CLI parameters
    Con.StdOut "Time               : " & sTime
    Con.StdOut "Folder             : " & sPath;
@@ -280,6 +307,7 @@ Function PBMain () As Long
    Con.StdOut "File pattern       : " & sFilePattern
    Con.StdOut "Recurse subfolders : " & IIf$(IsTrue(udtCfg.Subfolders), "True", "False")
    Con.StdOut "Verbose            : " & IIf$(IsTrue(udtCfg.Verbose), "True", "False")
+   Con.StdOut "Delete readonly    : " & IIf$(IsTrue(udtCfg.ReadOnly), "True", "False")
    Con.StdOut "Delete to Rec. Bin : " & IIf$(IsTrue(udtCfg.RecycleBin), "True", "False")
    Con.StdOut "Del. only dirs     : " & IIf$(IsTrue(udtCfg.DirsOnly), "True", "False")
    Con.StdOut "Del. files and dirs: " & IIf$(IsTrue(udtCfg.DirsAndFiles), "True", "False")
@@ -423,6 +451,8 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
 '           - Allow deletion to recycle bin (/rb)
 '           24.08.2018
 '           - Display the " - Skipping ..." message only with verbose output enabled (/v)
+'           22.02.2012
+'           - Enable deletion of readonly files (/r)
 '------------------------------------------------------------------------------
    Local sSourceFile, sPattern, sFile, sFileTime As String
    Local sMsg, sTemp, sKeyPress As String
@@ -514,21 +544,53 @@ Function DeleteFiles(ByVal sPath As String, ByVal sTime As String, ByVal sFilePa
                      End If
 
                   Catch
-                     Con.Color 12, -1
-                     sMsg = "  - ERROR: can't delete "
-                     Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
-                     If IsTrue(udtCfg.Verbose) Then
-                        Con.StdOut ""
+                     ' Delete readonly files, if this caused the error ("Permission denied")
+
+                     Trace Print " -- Err          : " & Format$(Err)
+                     Trace Print " -- Cfg.ReadOnly : " & Format$(udtCfg.ReadOnly)
+                     Trace Print " -- File attr.   : " & Format$(udtWFD.dwFileAttributes)
+                     Trace Print " -- File attr AND: " & Format$(udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_READONLY)
+                     Trace Print " -- File attr  OR: " & Format$(udtWFD.dwFileAttributes Or %FILE_ATTRIBUTE_READONLY)
+
+                     If (Err = 70) And (IsTrue(udtCfg.ReadOnly)) And (udtWFD.dwFileAttributes And %FILE_ATTRIBUTE_READONLY) Then
+                        SetAttr NormalizePath(sPath) & sFile, (udtWFD.dwFileAttributes - %FILE_ATTRIBUTE_READONLY)
+                        ErrClear
+                        Try
+                           If IsFalse(udtCfg.RecycleBin) Then
+                              Kill NormalizePath(sPath) & sFile
+                           Else
+                              Call Delete2RecycleBin(NormalizePath(sPath) & sFile)
+                           End If
+                        Catch
+                           Con.Color 12, -1
+                           sMsg = "  - ERROR: can't delete "
+                           Con.StdOut sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg))) & " - " & Error$(Err)
+                           If IsTrue(udtCfg.Verbose) Then
+                              Con.StdOut ""
+                           End If
+                           Con.Color 7, -1
+                           Decr lCount
+                        End Try
+
+                     Else
+
+                        Con.Color 12, -1
+                        sMsg = "  - ERROR: can't delete "
+                        Con.StdOut sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg))) & " - " & Error$(Err)
+                        If IsTrue(udtCfg.Verbose) Then
+                           Con.StdOut ""
+                        End If
+                        Con.Color 7, -1
+                        Decr lCount
                      End If
-                     Con.Color 7, -1
-                     Decr lCount
+
                   End Try
 
                Else
 
                   If IsTrue(udtCfg.Verbose) Then
                      sMsg = "  - Skipping "
-                     Con.StdOut  sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
+                     Con.StdOut sMsg & ShortenPathText(sFile, Con.Screen.Col-(1+Len(sMsg)))
                      If IsTrue(udtCfg.Verbose) Then
                         Con.StdOut "    Time stamp: " & sFileTime
                      End If
@@ -717,7 +779,7 @@ Sub ShowHelp
    Con.StdOut "            [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1] [/processpriority=i|b]"
    Con.StdOut "            [/deldirsonly|/delall]"
    Con.StdOut "  or     DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1]  [/pp=i|b]"
-   Con.StdOut "i.e.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
+   Con.StdOut "e.g.     DeleteFilesOlderThan /time=2d /path=D:\MyTarget"
    Con.StdOut "         DeleteFilesOlderThan /t=3w /p=C:\MyTarget\Data /f=*.txt /s=1"
    Con.StdOut ""
    Con.StdOut "Pressing <ESC> any time will exit the program."
@@ -733,6 +795,8 @@ Sub ShowHelp
    Con.StdOut "/rb or  /recyclebin       = delete to recycle bin instead of permanently delete."
    Con.StdOut "         If omitted, defaults to 0 = delete files permanently."
    Con.StdOut "/pp or  /processpriority  = Lower this process' priority in order to consume less (mainly CPU) resources."
+   Con.StdOut "         Valid values are i = Idle (lowest possible priority) or b = Below Normal.
+   Con.StdOut "/hc or  /hideconsole      = Hide the application's (console) window? Yes(1) or no(0). Defaults to no."
    Con.StdOut "         Valid values are i = Idle (lowest possible priority) or b = Below Normal.
    Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
    Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."
@@ -928,34 +992,6 @@ Function CheckUserExit(Optional ByVal vntKeys As Variant) As Long
 
    ' Any of the termination keys pressed?
    CheckUserExit = Tally(sPressed, Any sKeys)
-
-End Function
-'------------------------------------------------------------------------------
-
-Function GetEnvironPath(ByVal sPath As String) As String
-'------------------------------------------------------------------------------
-'Purpose  : Use Win API ExpandEnvironmentStrings to resolve variables in pased folder
-'
-'Prereq.  : -
-'Parameter: sPath - Folder passed via CLI parameter /p
-'Returns  : String with replaced environemnt variable
-'Note     : -
-'
-'   Author: Knuth Konrad
-'   Source: -
-'  Changed: -
-'------------------------------------------------------------------------------
-   Local szIn, szOut As AsciiZ * %Max_Path
-   Dim lRet As Long
-
-   szIn = sPath
-   lRet = ExpandEnvironmentStringsA(szIn, szOut, SizeOf(szOut))
-
-   If lRet > 0 Then
-      GetEnvironPath = Left$(szOut, lRet)
-   Else
-      GetEnvironPath = sPath
-   End If
 
 End Function
 '------------------------------------------------------------------------------
