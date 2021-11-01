@@ -43,7 +43,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 9
+%VERSION_REVISION = 10
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -88,6 +88,17 @@ End Union
 '------------------------------------------------------------------------------
 #Include Once "win32api.inc"
 #Include "sautilcc.inc"       ' General console helpers
+
+Declare Function PathIsDirectoryEmptyA Import "SHLWAPI.DLL" Alias "PathIsDirectoryEmptyA" ( _
+   ByRef pszPath As AsciiZ _                            ' __in LPCSTR pszPath
+   ) As Long                                            ' BOOL
+
+Declare Function StrFormatByteSizeA Import "SHLWAPI.DLL" Alias "StrFormatByteSizeA" ( _
+   ByVal dw As Dword _                                  ' __in DWORD dw
+ , ByRef pszBuf As AsciiZ _                             ' __out LPSTR pszBuf
+ , ByVal cchBuf As Dword _                              ' __in UINT cchBuf
+ ) As Dword                                             ' LPSTR
+
 '------------------------------------------------------------------------------
 '*** Variables ***
 '------------------------------------------------------------------------------
@@ -399,8 +410,25 @@ Function PBMain () As Long
    Con.StdOut "File(s) deleted    : " & Format$(lResult)
    Con.StdOut "Folder(s) processed: " & Format$(qudFolders)
 
+   Local szTemp As AsciiZ * %Max_Path
+   Local lRet As Dword
+
+'   Declare Function StrFormatByteSizeA Import "SHLWAPI.DLL" Alias "StrFormatByteSizeA" ( _
+'      ByVal dw As Dword _                                  ' __in DWORD dw
+'    , ByRef pszBuf As AsciiZ _                             ' __out LPSTR pszBuf
+'    , ByVal cchBuf As Dword _                              ' __in UINT cchBuf
+'    ) As Dword                                             ' LPSTR
+
+
+   ' lRet = StrFormatByteSizeA(cdwd(qudFileSizeTotal), szTemp, len(szTemp))
+   'if lRet > 0 Then
+   '   sTemp = trim$(szTemp, any chr$(0,32))
+   'end if
+
+
    sTemp = Trim$(GetSizeString(qudFileSizeTotal))
    Con.StdOut "Disk space freed   : " & FormatNumberEx(qudFileSizeTotal, %True) & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
+   ' Con.StdOut "Disk space freed   : " & FormatNumberEx(qudFileSizeTotal, %True) & " bytes" & IIf$(Len(sTemp) > 0, " ~ " & sTemp, "")
 
    If IsTrue(udtCfg.Verbose) Then
       Call oPTNow.Now()
@@ -811,22 +839,22 @@ Sub ShowHelp
    Con.StdOut "/dea will delete all files matching the pattern. And all directories matching it, with *everything* in it. The file pattern doesn't apply to those.
    Con.StdOut "/ddo and /dea can't be used together."
    Con.StdOut ""
-   Con.StdOut "You may specify more than one file pattern for the parameter /f by using ; (semicolon) as a separator, i.e."
+   Con.StdOut "You may specify more than one file pattern for the parameter /f by using ; (semicolon) as a separator, e.g."
    Con.StdOut "       /f=*.doc;*.rtf -> deletes all *.doc and all *.rtf files from the specified folder."
    Con.StdOut "       /f=Backup*.bak;Log*.trn -> deletes all Backup*.bak and all Log*.trn files from the specified folder."
    Con.StdOut ""
    Con.StdOut "Allowed time specification units for parameter /t are:
-   Con.StdOut "        d = day   i.e. 1d"
-   Con.StdOut "        w = week  i.e. 2w"
-   Con.StdOut "        m = month i.e. 3m"
-   Con.StdOut "        y = year  i.e. 4y"
+   Con.StdOut "        d = day   e.g. 1d"
+   Con.StdOut "        w = week  e.g. 2w"
+   Con.StdOut "        m = month e.g. 3m"
+   Con.StdOut "        y = year  e.g. 4y"
    Con.StdOut ""
    Con.StdOut "Allowed file size units:"
-   Con.StdOut "   <empty> = Byte, i.e. 100"
-   Con.StdOut "   kb = Kilobyte, i.e. 100kb"
-   Con.StdOut "   mb = Megabyte, i.e. 100mb"
-   Con.StdOut "   gb = Gigabyte, i.e. 100gb"
-   Con.StdOut "   tb = Terabyte, i.e. 100tb"
+   Con.StdOut "   <empty> = Byte, e.g. 100"
+   Con.StdOut "   kb = Kilobyte, e.g. 100kb"
+   Con.StdOut "   mb = Megabyte, e.g. 100mb"
+   Con.StdOut "   gb = Gigabyte, e.g. 100gb"
+   Con.StdOut "   tb = Terabyte, e.g. 100tb"
    Con.StdOut ""
    Con.StdOut "Please note: 1 KB = 1024 byte, 1 MB = 1024 KB etc."
    Con.StdOut ""
