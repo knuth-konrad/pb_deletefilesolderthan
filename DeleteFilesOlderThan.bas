@@ -28,8 +28,10 @@
 '           - Exit the current run with <ESC>
 '           04.12.2018
 '           - Format numbers with proper locale
-'           10-04-2021
+'           2021-10-04
 '           - New parameter: hc/hideconsole
+'           2021-11-18
+'           - New parameter /la
 '------------------------------------------------------------------------------
 #Compile Exe ".\DeleteFilesOlderThan.exe"
 #Option Version5
@@ -43,7 +45,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 10
+%VERSION_REVISION = 11
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -72,6 +74,7 @@ Type ParamsTYPE
    DirsAndFiles As Byte
    ReadOnly As Byte
    HideConsole As Byte
+   LastAccessTime As Byte
 End Type
 
 Type FileSizeTYPE
@@ -129,7 +132,7 @@ Function PBMain () As Long
 '           - Use Con.StdOut "..." instead of Print "..." for error messages so that
 '           they're also captured if STDOUT is redireted to a file.
 '           22.02.2012
-'           - New parameter /r (/readonly): force deletion of reaonly files
+'           - New parameter /r (/readonly): force deletion of readonly files
 '------------------------------------------------------------------------------
    Local sPath, sTime, sFilePattern, sCmd, sTemp As String
    Local i, j As Dword
@@ -180,6 +183,7 @@ Function PBMain () As Long
    ' /fgt or /filesgreaterthan
    ' /rb or /recyclebin
    ' /pp or /processpriority
+   ' /la or /lastaccess
    ' /ddo or /deldirsonly
    ' /dea or /delall
 
@@ -243,6 +247,12 @@ Function PBMain () As Long
    If IsTrue(o.HasParam("dea", "delall")) Then
       vntResult = o.GetValueByName("dea", "delall")
       udtCfg.DirsAndFiles = Sgn(Abs(VariantVT(Variant$(vntResult))))
+   End If
+
+   ' Use LastAccessTime instead of LastWriteTime?
+   If IsTrue(o.HasParam("la", "lastaccess")) Then
+      vntResult = o.GetValueByName("la", "lastaccess")
+      udtCfg.LastAccessTime = Sgn(Abs(VariantVT(Variant$(vntResult))))
    End If
 
    ' ** Set process priority to 'idle' (IDLE_PRIORITY_CLASS) or
@@ -320,8 +330,9 @@ Function PBMain () As Long
    Con.StdOut "Verbose            : " & IIf$(IsTrue(udtCfg.Verbose), "True", "False")
    Con.StdOut "Delete readonly    : " & IIf$(IsTrue(udtCfg.ReadOnly), "True", "False")
    Con.StdOut "Delete to Rec. Bin : " & IIf$(IsTrue(udtCfg.RecycleBin), "True", "False")
-   Con.StdOut "Del. only dirs     : " & IIf$(IsTrue(udtCfg.DirsOnly), "True", "False")
-   Con.StdOut "Del. files and dirs: " & IIf$(IsTrue(udtCfg.DirsAndFiles), "True", "False")
+   ' Con.StdOut "Del. only dirs     : " & IIf$(IsTrue(udtCfg.DirsOnly), "True", "False")
+   ' Con.StdOut "Del. files and dirs: " & IIf$(IsTrue(udtCfg.DirsAndFiles), "True", "False")
+   Con.StdOut "Base deletion on   : " & IIf$(IsTrue(udtCfg.LastAccessTime), "LastAccessTime", "LastWriteTime")
 
    Local sPP As String
    sPP = udtCfg.ProcessPriority
@@ -705,6 +716,8 @@ Function IsDeleteMatch(ByVal sTime As String, ByVal udt As DirData, ByVal udtCfg
 '           - Sum up size of files that were deleted
 '           30.01.2017
 '           - Compare file size in addition to file time
+'           2021-11-18
+'           - Calculated time by LastAccessTime
 '------------------------------------------------------------------------------
    Local oPTFile, oPTNow As IPowerTime
    Local dwValue As Dword
@@ -713,7 +726,12 @@ Function IsDeleteMatch(ByVal sTime As String, ByVal udt As DirData, ByVal udtCfg
 
    Let oPTFile = Class "PowerTime":Let oPTNow = Class "PowerTime"
    Call oPTNow.Now()
-   oPTFile.FileTime = udt.LastWriteTime
+
+   If IsTrue(udtCfg.LastAccessTime) Then
+      oPTFile.FileTime = udt.LastAccessTime
+   Else
+      oPTFile.FileTime = udt.LastWriteTime
+   End If
 
    ' Extract value and unit of the time parameter
    dwValue = CDwd(Val(sTime))
@@ -831,8 +849,8 @@ Sub ShowHelp
    Con.StdOut ""
    Con.StdOut "Please note that you may only use *either* /fst or /fgt. You can't use both parameters. If you happen to pass both parameters, the last one 'wins'."
    Con.StdOut ""
-   Con.StdOut "/ddo or /deldirsonly      = delete (empty) directories only."
-   Con.StdOut "/dea or /delall           = delete directories and files."
+'   Con.StdOut "/ddo or /deldirsonly      = delete (empty) directories only."
+'   Con.StdOut "/dea or /delall           = delete directories and files."
    Con.StdOut ""
    Con.StdOut "Both options (/ddo, /dea) utilize the provided file pattern (/f). Suppose the file pattern being /f=tmp*.tm?, then:"
    Con.StdOut "/ddo won't delete ANY files at all. And it will only delete empty directories matching the pattern."
