@@ -11,6 +11,7 @@ DATA 1/
 *.log
 *.tra
 *.bak
+*.ba_
 
 # Other tools
 OpenFile.*
