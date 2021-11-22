@@ -843,7 +843,7 @@ Sub ShowHelp
    Con.StdOut "/pp or  /processpriority  = Lower this process' priority in order to consume less (mainly CPU) resources."
    Con.StdOut "         Valid values are i = Idle (lowest possible priority) or b = Below Normal.
    Con.StdOut "/hc or  /hideconsole      = Hide the application's (console) window? Yes(1) or no(0). Defaults to no."
-   Con.StdOut "/la or /lastaccess        = Compare to a file's LastAccessTime instead of its LastWriteTime."
+   Con.StdOut "/la or  /lastaccess       = Compare to a file's LastAccessTime instead of its LastWriteTime."
    Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
    Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."
    Con.StdOut ""
