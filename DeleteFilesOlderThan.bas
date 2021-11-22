@@ -843,7 +843,7 @@ Sub ShowHelp
    Con.StdOut "/pp or  /processpriority  = Lower this process' priority in order to consume less (mainly CPU) resources."
    Con.StdOut "         Valid values are i = Idle (lowest possible priority) or b = Below Normal.
    Con.StdOut "/hc or  /hideconsole      = Hide the application's (console) window? Yes(1) or no(0). Defaults to no."
-   Con.StdOut "         Valid values are i = Idle (lowest possible priority) or b = Below Normal.
+   Con.StdOut "/la or /lastaccess        = Compare to a file's LastAccessTime instead of its LastWriteTime."
    Con.StdOut "/fst or /filessmallerthan = only delete files smaller than the specified file size (see below how to pass file sizes)."
    Con.StdOut "/fgt or /filesgreaterthan = only delete files greater than the specified file size (see below how to pass file sizes)."
    Con.StdOut ""
@@ -851,12 +851,12 @@ Sub ShowHelp
    Con.StdOut ""
 '   Con.StdOut "/ddo or /deldirsonly      = delete (empty) directories only."
 '   Con.StdOut "/dea or /delall           = delete directories and files."
-   Con.StdOut ""
-   Con.StdOut "Both options (/ddo, /dea) utilize the provided file pattern (/f). Suppose the file pattern being /f=tmp*.tm?, then:"
-   Con.StdOut "/ddo won't delete ANY files at all. And it will only delete empty directories matching the pattern."
-   Con.StdOut "/dea will delete all files matching the pattern. And all directories matching it, with *everything* in it. The file pattern doesn't apply to those.
-   Con.StdOut "/ddo and /dea can't be used together."
-   Con.StdOut ""
+'   Con.StdOut ""
+'   Con.StdOut "Both options (/ddo, /dea) utilize the provided file pattern (/f). Suppose the file pattern being /f=tmp*.tm?, then:"
+'   Con.StdOut "/ddo won't delete ANY files at all. And it will only delete empty directories matching the pattern."
+'   Con.StdOut "/dea will delete all files matching the pattern. And all directories matching it, with *everything* in it. The file pattern doesn't apply to those.
+'   Con.StdOut "/ddo and /dea can't be used together."
+'   Con.StdOut ""
    Con.StdOut "You may specify more than one file pattern for the parameter /f by using ; (semicolon) as a separator, e.g."
    Con.StdOut "       /f=*.doc;*.rtf -> deletes all *.doc and all *.rtf files from the specified folder."
    Con.StdOut "       /f=Backup*.bak;Log*.trn -> deletes all Backup*.bak and all Log*.trn files from the specified folder."

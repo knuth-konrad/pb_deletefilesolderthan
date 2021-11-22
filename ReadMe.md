@@ -6,11 +6,11 @@ DeleteFilesOlderThan deletes files matching the passed file pattern and which ar
 
 ## Usage
 
-`DeleteFilesOlderThan /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1] [/readonly=0|1] [/processpriority=i|b] [/hideconsole=0|1]`
+`DeleteFilesOlderThan /time=<time specification> /path=<folder to delete files from> [/filepattern=<files to delete>[;<files to delete>]] [/subfolders=0|1] [/filessmallerthan=|/filesgreaterthan=<file size>] [/recyclebin=0|1] [/readonly=0|1] [/processpriority=i|b] [/hideconsole=0|1] [/lastaccess=0|1]`
 
    or  
 
-`DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1] [/r=0|1] [/pp=i|b] [/hc=0|1]`
+`DeleteFilesOlderThan /t=<time specification> /p=<folder to delete files from> [/f=<files to delete>[;<files to delete>]] [/s=0|1] [/fst=|/fgt=<file size>] [/rb=0|1] [/r=0|1] [/pp=i|b] [/hc=0|1] [/la=0|1]`
 
 e.g.
 
@@ -41,6 +41,8 @@ Delete readonly files? If omitted, defaults to 0 = don't delete readonly files.
 Set this process' priority to _Idle_ ('i' = lowest possible) or _Below normal_ ('b') in order to consume less _(mainly CPU)_ resources.
 - `/hc` or `/hideconsole`  
 Hide the application's (console) window? Yes(1) or no(0). Defaults to no.
+- `/la` or `lastaccess`  
+Compare to a file's LastAccessTime instead of its LastWriteTime.
 - `/fst` or `/filessmallerthan`  
 Only delete files _smaller_ than the specified file size _(see below how to pass file sizes)_.
 - `/fgt` or `/filesgreaterthan`  
