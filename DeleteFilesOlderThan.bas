@@ -356,7 +356,7 @@ Function PBMain () As Long
    Con.StdOut ""
    Con.StdOut "Press ";
    Con.Color %INTENSE_WHITE, -1
-   Con.StdOut "<ESC> ";
+   Con.StdOut "<ESC>";
    Con.Color %White, -1
    Con.StdOut " at any time to exit."
 
