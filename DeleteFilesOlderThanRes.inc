@@ -9,11 +9,11 @@
 
 #Resource Version$ "CompanyName",      "BasicAware"
 #Resource Version$ "FileDescription",  "Delete old files"
-#Resource Version$ "LegalCopyright",   "Copyright 2013-2021 BasicAware"
+#Resource Version$ "LegalCopyright",   "Copyright 2013-2022 BasicAware"
 #Resource Version$ "OriginalFilename", "DeleteFilesOlderThan.exe"
 #Resource Version$ "ProductName",      "DeleteFilesOlderThan"
-#Resource Version$ "ProductVersion",   "1.8.11.0"
-#Resource Version$ "FileVersion",      "1.8.11.0"
+#Resource Version$ "ProductVersion",   "1.8.12.0"
+#Resource Version$ "FileVersion",      "1.8.12.0"
 #Resource Version$ "Comments",         "Written by Knuth Konrad"
 
 $COMPANY_NAME = "BasicAware"

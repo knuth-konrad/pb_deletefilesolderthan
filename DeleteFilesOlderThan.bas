@@ -45,7 +45,7 @@
 
 %VERSION_MAJOR = 1
 %VERSION_MINOR = 8
-%VERSION_REVISION = 11
+%VERSION_REVISION = 12
 
 ' Version Resource information
 #Include ".\DeleteFilesOlderThanRes.inc"
@@ -834,6 +834,8 @@ Sub ShowHelp
    Con.StdOut "----------"
    Con.StdOut "/t or   /time             = time specification"
    Con.StdOut "/p or   /path             = (start) folder"
+   Con.StdOut "                            If path includes spaces or other special characters, enclose it in double quotation marks (" & Chr$(34) &")"
+   Con.StdOut "                            e.g. /p=" & Chr$(34) & "C:\My Data Folder\Old Backups" & Chr$(34)
    Con.StdOut "/f or   /filepattern      = file pattern"
    Con.StdOut "         If omitted, all files are scanned (equals /f=*.*)."
    Con.StdOut "/s or   /subfolders       = recurse subfolders yes(1) or no (0)"
